@@ -1,11 +1,14 @@
 import tkinter as tk
-from tkinter import messagebox, font as tkfont, colorchooser, ttk
+from tkinter import messagebox, font as tkfont, colorchooser, ttk, filedialog
 import ctypes
+import os
+import io
 
 # 导入自定义模块
 from core.engine import CRCEngine
 from config.constants import Config
 from view.renderer import CanvasRenderer
+from PIL import Image
 
 # 提升高DPI清晰度
 try:
@@ -88,6 +91,7 @@ class CRCVisualizerApp:
         self._init_input_section(panel.inner_panel)
         self._init_style_section(panel.inner_panel)
         self._init_color_section(panel.inner_panel)
+        self._init_export_section(panel.inner_panel)
         
         # 3. 右侧画布区域
         self._setup_canvas_area()
@@ -196,6 +200,18 @@ class CRCVisualizerApp:
         self._add_color_btn(grid, "画布", 'canvas_bg_color', 1, 2)
         tk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.reset_colors, 
                   font=("SimSun", 9), bg="#f8fafc", pady=Config.LAYOUT['btn_ipady']).pack(fill=tk.X, pady=(10, 20))
+
+    def _init_export_section(self, parent):
+        """ 初始化导出配置区（位于左侧功能栏底部） """
+        tk.Frame(parent, height=1, bg="#e5e7eb").pack(fill=tk.X, pady=(0, 10))
+        tk.Button(
+            parent,
+            text="导出图表",
+            command=self.open_export_dialog,
+            font=("SimSun", 10, "bold"),
+            bg="#e2e8f0",
+            pady=Config.LAYOUT['btn_ipady']
+        ).pack(fill=tk.X, pady=(0, 20))
 
     def _setup_canvas_area(self):
         """ 构建右侧核心绘图区域 """
@@ -365,6 +381,127 @@ class CRCVisualizerApp:
         state = tk.NORMAL if self.show_gray_var.get() else tk.DISABLED
         self.btn_bg_block.config(state=state)
         self.btn_bg_digit.config(state=state)
+
+    def open_export_dialog(self):
+        """ 打开导出窗口并提供左侧预览 """
+        dlg = tk.Toplevel(self.root)
+        dlg.title("导出图表")
+        dlg.geometry("980x620")
+        dlg.transient(self.root)
+
+        left = tk.Frame(dlg, bg="#f8fafc", padx=10, pady=10)
+        left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        right = tk.Frame(dlg, bg="#ffffff", padx=16, pady=16, width=340)
+        right.pack(side=tk.RIGHT, fill=tk.Y)
+        right.pack_propagate(False)
+
+        tk.Label(left, text="导出预览", bg="#f8fafc", font=("SimSun", 12, "bold")).pack(anchor=tk.W, pady=(0, 8))
+        preview_canvas = tk.Canvas(left, bg="#ffffff", highlightthickness=1, highlightbackground="#cbd5e1")
+        preview_canvas.pack(fill=tk.BOTH, expand=True)
+        self._sync_preview_canvas(preview_canvas)
+
+        tk.Label(right, text="导出参数", bg="#ffffff", font=("SimSun", 12, "bold")).pack(anchor=tk.W, pady=(0, 10))
+        fmt_var = tk.StringVar(value="png")
+        quality_var = tk.StringVar(value="标清默认尺寸1倍")
+        dpi_var = tk.IntVar(value=96)
+        color_var = tk.StringVar(value="彩色")
+        dir_mode_var = tk.StringVar(value="当前目录（导出结果）")
+        custom_dir_var = tk.StringVar(value="")
+
+        self._add_combo_in_dialog(right, "格式", fmt_var, ["png", "jpg", "svg"])
+        self._add_combo_in_dialog(right, "画质", quality_var, [
+            "标清默认尺寸", "标清默认尺寸1倍", "标清默认尺寸2倍", "标清默认尺寸3倍", "高清默认尺寸1倍", "高清默认尺寸2倍"
+        ])
+        self._add_combo_in_dialog(right, "DPI", dpi_var, [72, 96, 150, 200, 300, 600])
+        self._add_combo_in_dialog(right, "颜色", color_var, ["彩色", "灰度", "黑白"])
+        self._add_combo_in_dialog(right, "导出目录", dir_mode_var, ["当前目录（导出结果）", "自定义目录"])
+
+        browse_btn = tk.Button(right, text="浏览目录", state=tk.DISABLED, command=lambda: self._pick_export_dir(custom_dir_var))
+        browse_btn.pack(fill=tk.X, pady=(5, 2))
+        dir_lbl = tk.Label(right, textvariable=custom_dir_var, bg="#ffffff", fg="#64748b", anchor="w", wraplength=300)
+        dir_lbl.pack(fill=tk.X, pady=(0, 8))
+
+        def on_dir_mode_changed(*_):
+            browse_btn.config(state=(tk.NORMAL if dir_mode_var.get() == "自定义目录" else tk.DISABLED))
+        dir_mode_var.trace_add("write", on_dir_mode_changed)
+
+        tk.Button(
+            right, text="执行导出", bg="#3b82f6", fg="white", font=("SimSun", 10, "bold"),
+            command=lambda: self.export_chart(fmt_var.get(), quality_var.get(), int(dpi_var.get()), color_var.get(),
+                                              dir_mode_var.get(), custom_dir_var.get())
+        ).pack(fill=tk.X, pady=(10, 0))
+
+    def _add_combo_in_dialog(self, parent, label, var, values):
+        tk.Label(parent, text=label, bg="#ffffff", font=("SimSun", 10)).pack(anchor=tk.W, pady=(6, 2))
+        combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
+        combo.pack(fill=tk.X)
+
+    def _pick_export_dir(self, var):
+        d = filedialog.askdirectory(title="选择导出目录")
+        if d:
+            var.set(d)
+
+    def _sync_preview_canvas(self, preview_canvas):
+        """ 将主画布对象复制到预览画布 """
+        preview_canvas.delete("all")
+        for item in self.canvas.find_all():
+            item_type = self.canvas.type(item)
+            coords = self.canvas.coords(item)
+            conf = self.canvas.itemconfig(item)
+            if item_type == "line":
+                preview_canvas.create_line(*coords, fill=conf["fill"][-1], width=conf["width"][-1], smooth=(conf["smooth"][-1] == "1"))
+            elif item_type == "rectangle":
+                preview_canvas.create_rectangle(*coords, fill=conf["fill"][-1], outline=conf["outline"][-1], width=conf["width"][-1])
+            elif item_type == "text":
+                preview_canvas.create_text(*coords, text=conf["text"][-1], fill=conf["fill"][-1], font=conf["font"][-1])
+        preview_canvas.configure(scrollregion=preview_canvas.bbox("all"))
+
+    def export_chart(self, fmt, quality, dpi, color_mode, dir_mode, custom_dir):
+        try:
+            multiplier = {
+                "标清默认尺寸": 1,
+                "标清默认尺寸1倍": 1,
+                "标清默认尺寸2倍": 2,
+                "标清默认尺寸3倍": 3,
+                "高清默认尺寸1倍": 4,
+                "高清默认尺寸2倍": 6
+            }[quality]
+
+            export_dir = os.path.join(os.getcwd(), "导出结果") if dir_mode == "当前目录（导出结果）" else custom_dir
+            if not export_dir:
+                raise ValueError("已选择“自定义目录”，但尚未通过“浏览目录”按钮指定具体导出路径。")
+            os.makedirs(export_dir, exist_ok=True)
+            out_path = os.path.join(export_dir, f"crc_export.{fmt}")
+
+            if fmt == "svg":
+                try:
+                    import canvasvg
+                except ImportError as e:
+                    raise RuntimeError(f"SVG 导出依赖缺失：未安装 canvasvg。原始异常：{repr(e)}") from e
+                canvasvg.saveall(out_path, self.canvas)
+            else:
+                ps = self.canvas.postscript(colormode='color')
+                img = Image.open(io.BytesIO(ps.encode("utf-8")))
+                if multiplier > 1:
+                    img = img.resize((img.width * multiplier, img.height * multiplier), Image.Resampling.LANCZOS)
+                if color_mode == "灰度":
+                    img = img.convert("L")
+                elif color_mode == "黑白":
+                    img = img.convert("1")
+                else:
+                    img = img.convert("RGB")
+                save_fmt = "JPEG" if fmt == "jpg" else "PNG"
+                img.save(out_path, format=save_fmt, dpi=(dpi, dpi))
+
+            messagebox.showinfo("导出成功", f"图表已导出到：\n{out_path}")
+        except Exception as e:
+            messagebox.showerror(
+                "导出失败",
+                "导出过程中发生错误，请按以下信息排查：\n\n"
+                f"1) 错误类型: {type(e).__name__}\n"
+                f"2) 错误详情: {str(e)}\n"
+                f"3) 建议排查: 请确认格式依赖（如 svg 需 canvasvg）、目录权限、导出参数是否有效。"
+            )
 
     # --- UI 辅助绘图组件 ---
 
