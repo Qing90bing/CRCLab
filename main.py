@@ -8,7 +8,7 @@ import io
 from core.engine import CRCEngine
 from config.constants import Config
 from view.renderer import CanvasRenderer
-from PIL import Image
+from PIL import Image, ImageGrab
 
 # 提升高DPI清晰度
 try:
@@ -480,8 +480,7 @@ class CRCVisualizerApp:
                     raise RuntimeError(f"SVG 导出依赖缺失：未安装 canvasvg。原始异常：{repr(e)}") from e
                 canvasvg.saveall(out_path, self.canvas)
             else:
-                ps = self.canvas.postscript(colormode='color')
-                img = Image.open(io.BytesIO(ps.encode("utf-8")))
+                img = self._capture_canvas_for_export()
                 if multiplier > 1:
                     img = img.resize((img.width * multiplier, img.height * multiplier), Image.Resampling.LANCZOS)
                 if color_mode == "灰度":
@@ -502,6 +501,26 @@ class CRCVisualizerApp:
                 f"2) 错误详情: {str(e)}\n"
                 f"3) 建议排查: 请确认格式依赖（如 svg 需 canvasvg）、目录权限、导出参数是否有效。"
             )
+
+    def _capture_canvas_for_export(self):
+        """
+        导出位图时优先走 PostScript；若系统缺少 Ghostscript，则自动回退到屏幕截图方式。
+        """
+        try:
+            ps = self.canvas.postscript(colormode='color')
+            return Image.open(io.BytesIO(ps.encode("utf-8")))
+        except OSError as e:
+            if "Ghostscript" not in str(e):
+                raise
+            # 回退方案：使用屏幕截图捕获 Canvas 可见区域，规避 Ghostscript 依赖。
+            self.root.update_idletasks()
+            x0 = self.canvas.winfo_rootx()
+            y0 = self.canvas.winfo_rooty()
+            x1 = x0 + self.canvas.winfo_width()
+            y1 = y0 + self.canvas.winfo_height()
+            if x1 <= x0 or y1 <= y0:
+                raise RuntimeError("Canvas 可见区域尺寸异常，无法执行截图导出。")
+            return ImageGrab.grab(bbox=(x0, y0, x1, y1))
 
     # --- UI 辅助绘图组件 ---
 
