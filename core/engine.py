@@ -7,6 +7,28 @@ class CRCEngine:
     """
 
     @staticmethod
+    def _process_xor_step(rem, i, n, divisor, rows):
+        """
+        处理单步二进制除法的异或（XOR）运算及绘图信息收集。
+        
+        为什么提取此函数：将庞大的 calculate 主干业务与细粒度的步骤行生成解耦，
+        确保主干 calculate 控制在 50 行以内，符合高可读性规范。
+        """
+        # 1. 记录从上方掉下来的数据行（仅在非第一步时需要，作为当前运算的物理基数）
+        if i > 0:
+            rows.append({'type': 'working', 'val': rem[i:i+n], 'offset': i})
+        
+        # 2. 记录除数对齐行与减法横线
+        rows.append({'type': 'divisor', 'val': divisor, 'offset': i})
+        rows.append({'type': 'line', 'offset': i, 'len': n})
+
+        # 3. 执行 XOR 运算：二进制减法即异或
+        xor_part = "".join('0' if rem[i+j] == divisor[j] else '1' for j in range(n))
+        
+        # 4. 返回拼接后的新全局余数
+        return rem[:i] + xor_part + rem[i+n:]
+
+    @staticmethod
     def calculate(data, divisor):
         """
         执行二进制 CRC 长除法计算。
@@ -20,47 +42,25 @@ class CRCEngine:
         :param data: 原始二进制字符串 (例如 "110101")
         :param divisor: 生成多项式字符串 (例如 "1011")
         :return: 元组 (q, rows, dividend)
-                 - q: 商字符串 (str)
-                 - rows: 包含运算步骤的字典列表 (list of dict)
-                 - dividend: 补零后的被除数 (str)
         """
         # 基础输入验证
         if not data or not divisor or divisor[0] == '0':
             return "", [], ""
 
         n = len(divisor)
-        pad_len = n - 1  # 需补零的长度
-        dividend = data + "0" * pad_len  # 补零后的被除数
+        dividend = data + "0" * (n - 1)  # 补零后的被除数
         q = ""  # 商
         rem = dividend  # 当前余数（迭代过程中不断更新）
         rows = []  # 记录每一行绘制信息
-        last_i = 0  # 记录最后一次发生 XOR 的位置，用于确定最终余数行
+        last_i = 0  # 记录最后一次发生 XOR 的位置
 
         # 遍历被除数进行长除法
         for i in range(len(dividend) - n + 1):
             if rem[i] == '1':
-                # 当前位为 1，上商 1
                 q += '1'
-                
-                # 记录参与运算的行
-                if i > 0:
-                    # 记录从上方掉下来的数据行（当前运算的基数）
-                    rows.append({'type': 'working', 'val': rem[i:i+n], 'offset': i})
-                
-                # 记录除数对齐行
-                rows.append({'type': 'divisor', 'val': divisor, 'offset': i})
-                
-                # 记录减法横线（XOR 线）
-                rows.append({'type': 'line', 'offset': i, 'len': n})
-
-                # 执行 XOR 运算：二进制减法即异或
-                xor_part = "".join('0' if rem[i+j] == divisor[j] else '1' for j in range(n))
-                
-                # 更新全局余数状态
-                rem = rem[:i] + xor_part + rem[i+n:]
+                rem = CRCEngine._process_xor_step(rem, i, n, divisor, rows)
                 last_i = i
             else:
-                # 当前位为 0，上商 0，不做 XOR，直接看下一位
                 q += '0'
 
         # 最终余数提取（除法结束后的最后结果）

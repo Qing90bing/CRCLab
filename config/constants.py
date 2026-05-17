@@ -80,11 +80,11 @@ class Config:
     DEFAULT_VALUES = {
         'data': "110101",        # 默认数据位
         'divisor': "1011",       # 默认多项式
-        'font_size': 19,         # 默认字体大小
+        'font_size': 38,         # 默认字体大小
         'h_spacing': 1.2,        # 默认水平间距倍数
         'v_spacing': 1.4,        # 默认垂直间距倍数
         'line_width': 2,         # 默认线宽
-        'padding': 40,           # 默认外边距
+        'padding': 30,           # 默认外边距
         'ext_left': 0,           # 线条左端延伸
         'ext_right': 0,          # 线条右端延伸
         'span_left': -0.5,       # 弧线跨度调整
