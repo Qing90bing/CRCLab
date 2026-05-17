@@ -74,6 +74,11 @@ class Config:
         'canvas_bg': "#1e293b",  # 画布容器的背景（暗色调）
         'toolbar_bg': "#ffffff", # 工具栏背景
         'toolbar_opacity': 0.9,  # 工具栏透明度
+        'export_dialog_w_ratio': 0.85,  # 导出对话框对物理屏幕宽度的占比
+        'export_dialog_h_ratio': 0.85,  # 导出对话框对物理屏幕高度的占比
+        'export_side_width': 340,        # 导出侧边控制栏宽度
+        'export_preview_bg': "#f8fafc",  # 导出预览区背景底色
+        'export_ctrl_bg': "#ffffff",     # 导出参数控制区背景底色
     }
 
     # 默认业务参数配置表：程序启动时的初始状态
@@ -92,9 +97,33 @@ class Config:
         'show_gray': True        # 默认开启补零标记
     }
 
+    # 默认导出配置参数表：统一控制初始业务值
+    EXPORT_VALUES = {
+        'format': "png",                          # 默认物理导出格式
+        'quality': "标清默认尺寸1倍",             # 默认物理画面缩放倍数
+        'dpi': 96,                                # 默认物理 DPI 密度
+        'color': "彩色",                          # 默认物理导出色彩模式
+        'show_border': False,                      # 默认是否绘制纸张框线
+        'dir_mode': "当前目录（导出结果）",       # 默认存储目标目录类型
+        'custom_dir': ""                          # 默认自定义目录初始值
+    }
+
+    # 导出下拉菜单的可选参数元数据集合
+    EXPORT_OPTIONS = {
+        'formats': ["png", "jpg", "svg"],
+        'qualities': [
+            "标清默认尺寸", "标清默认尺寸1倍", "标清默认尺寸2倍",
+            "标清默认尺寸3倍", "高清默认尺寸1倍", "高清默认尺寸2倍"
+        ],
+        'dpis': [72, 96, 150, 200, 300, 600],
+        'colors': ["彩色", "灰度", "黑白"],
+        'dir_modes': ["当前目录（导出结果）", "自定义目录"]
+    }
+
     # 字体配置：定义不同用途的字体族
     FONTS = {
         'zh_bold': ("SimSun", 11, "bold"),   # 中文标题加粗
         'zh_normal': ("SimSun", 11),         # 中文正文
         'en_main': ("Times New Roman", 12)    # 核心数据（建议使用衬线体模拟数学公式感）
     }
+

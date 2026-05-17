@@ -10,6 +10,7 @@ class ExportDialog:
     
     采用高内聚设计，将原本混杂在 main.py 中的导出 UI 构建、
     实时高保真预览重绘、以及多倍率物理图像输出逻辑完全抽离，实现 SRP 单一职责原则。
+    所有 UI 样式、默认业务状态和选项完全取自 Config 配置中心，实现单一事实来源。
     """
     def __init__(self, app):
         """
@@ -30,19 +31,25 @@ class ExportDialog:
         self.dlg.after(100, self._update_preview)
 
     def _setup_geometry(self):
-        """ 智能自适应屏幕分辨率并居中显示 """
+        """ 智能自适应屏幕分辨率并居中显示，使用统一的布局比例 """
         sw, sh = self.app.root.winfo_screenwidth(), self.app.root.winfo_screenheight()
-        w = min(1560, int(sw * 0.85))
-        h = min(980, int(sh * 0.85))
+        w = min(1560, int(sw * Config.LAYOUT['export_dialog_w_ratio']))
+        h = min(980, int(sh * Config.LAYOUT['export_dialog_h_ratio']))
         self.dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         self.dlg.minsize(1050, 700)
 
     def _build_layout(self):
-        """ 构建导出界面的双栏框架 """
-        self.left_frame = tk.Frame(self.dlg, bg="#f8fafc", padx=10, pady=10)
+        """ 构建导出界面的双栏框架，背景颜色和边距提取自统一配置中心 """
+        self.left_frame = tk.Frame(self.dlg, bg=Config.LAYOUT['export_preview_bg'], padx=10, pady=10)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        self.right_frame = tk.Frame(self.dlg, bg="#ffffff", padx=16, pady=16, width=340)
+        self.right_frame = tk.Frame(
+            self.dlg, 
+            bg=Config.LAYOUT['export_ctrl_bg'], 
+            padx=16, 
+            pady=16, 
+            width=Config.LAYOUT['export_side_width']
+        )
         self.right_frame.pack(side=tk.RIGHT, fill=tk.Y)
         self.right_frame.pack_propagate(False)
         
@@ -51,47 +58,71 @@ class ExportDialog:
 
     def _init_preview_frame(self, parent):
         """ 初始化左侧的高清实时重绘预览面板 """
-        tk.Label(parent, text="导出预览", bg="#f8fafc", font=("SimSun", 12, "bold")).pack(anchor=tk.W, pady=(0, 8))
+        tk.Label(
+            parent, 
+            text="导出预览", 
+            bg=Config.LAYOUT['export_preview_bg'], 
+            font=Config.FONTS['zh_bold']
+        ).pack(anchor=tk.W, pady=(0, 8))
+        
         self.preview_canvas = tk.Canvas(parent, bg="#ffffff", highlightthickness=1, highlightbackground="#cbd5e1")
         self.preview_canvas.pack(fill=tk.BOTH, expand=True)
 
     def _init_control_frame(self, parent):
         """ 构建右侧的全部控制参数表单及触发按钮 """
-        tk.Label(parent, text="导出参数", bg="#ffffff", font=("SimSun", 12, "bold")).pack(anchor=tk.W, pady=(0, 10))
+        tk.Label(
+            parent, 
+            text="导出参数", 
+            bg=Config.LAYOUT['export_ctrl_bg'], 
+            font=Config.FONTS['zh_bold']
+        ).pack(anchor=tk.W, pady=(0, 10))
         
-        self.fmt_var = tk.StringVar(value="png")
-        self.quality_var = tk.StringVar(value="标清默认尺寸1倍")
-        self.dpi_var = tk.IntVar(value=96)
-        self.color_var = tk.StringVar(value="彩色")
-        self.border_var = tk.BooleanVar(value=True)
-        self.dir_mode_var = tk.StringVar(value="当前目录（导出结果）")
-        self.custom_dir_var = tk.StringVar(value="")
-
-        self.fmt_combo = self._add_combo(parent, "格式", self.fmt_var, ["png", "jpg", "svg"])
-        self.quality_combo = self._add_combo(parent, "画质", self.quality_var, [
-            "标清默认尺寸", "标清默认尺寸1倍", "标清默认尺寸2倍", "标清默认尺寸3倍", "高清默认尺寸1倍", "高清默认尺寸2倍"
-        ])
-        self.dpi_combo = self._add_combo(parent, "DPI", self.dpi_var, [72, 96, 150, 200, 300, 600])
-        self.color_combo = self._add_combo(parent, "颜色", self.color_var, ["彩色", "灰度", "黑白"])
+        # 1. 初始化业务状态变量，完全采用配置中心的 EXPORT_VALUES
+        self.fmt_var = tk.StringVar(value=Config.EXPORT_VALUES['format'])
+        self.quality_var = tk.StringVar(value=Config.EXPORT_VALUES['quality'])
+        self.dpi_var = tk.IntVar(value=Config.EXPORT_VALUES['dpi'])
+        self.color_var = tk.StringVar(value=Config.EXPORT_VALUES['color'])
+        self.border_var = tk.BooleanVar(value=Config.EXPORT_VALUES['show_border'])
+        self.dir_mode_var = tk.StringVar(value=Config.EXPORT_VALUES['dir_mode'])
+        self.custom_dir_var = tk.StringVar(value=Config.EXPORT_VALUES['custom_dir'])
+ 
+        # 2. 绑定下拉菜单的元数据集合，完全来自于配置中心的 EXPORT_OPTIONS
+        self.fmt_combo = self._add_combo(parent, "格式", self.fmt_var, Config.EXPORT_OPTIONS['formats'])
+        self.quality_combo = self._add_combo(parent, "画质", self.quality_var, Config.EXPORT_OPTIONS['qualities'])
+        self.dpi_combo = self._add_combo(parent, "DPI", self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
+        self.color_combo = self._add_combo(parent, "颜色", self.color_var, Config.EXPORT_OPTIONS['colors'])
         
         self._add_custom_check(parent, "显示纸张边框", self.border_var, self._update_preview)
-        self._add_combo(parent, "导出目录", self.dir_mode_var, ["当前目录（导出结果）", "自定义目录"])
-
+        self._add_combo(parent, "导出目录", self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
+ 
         self.browse_btn = tk.Button(parent, text="浏览目录", state=tk.DISABLED, command=self._pick_export_dir)
         self.browse_btn.pack(fill=tk.X, pady=(5, 2))
         
-        self.dir_lbl = tk.Label(parent, textvariable=self.custom_dir_var, bg="#ffffff", fg="#64748b", anchor="w", wraplength=300)
+        self.dir_lbl = tk.Label(
+            parent, 
+            textvariable=self.custom_dir_var, 
+            bg=Config.LAYOUT['export_ctrl_bg'], 
+            fg="#64748b", 
+            anchor="w", 
+            wraplength=300
+        )
         self.dir_lbl.pack(fill=tk.X, pady=(0, 8))
         
         tk.Button(
-            parent, text="执行导出", bg="#3b82f6", fg="white", font=("SimSun", 10, "bold"),
+            parent, 
+            text="执行导出", 
+            bg="#3b82f6", 
+            fg="white", 
+            font=Config.FONTS['zh_bold'],
             command=self.export_chart
         ).pack(fill=tk.X, pady=(10, 0))
 
     def _setup_bindings(self):
         """ 绑定变量变化及窗口尺寸重构事件的实时监听 """
         def on_dir_mode_changed(*_):
-            self.browse_btn.config(state=(tk.NORMAL if self.dir_mode_var.get() == "自定义目录" else tk.DISABLED))
+            # 比对值采用统一配置元数据，避免硬编码 "自定义目录"
+            is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
+            self.browse_btn.config(state=(tk.NORMAL if is_custom else tk.DISABLED))
         self.dir_mode_var.trace_add("write", on_dir_mode_changed)
 
         def on_format_changed(*_):
@@ -149,12 +180,20 @@ class ExportDialog:
     def export_chart(self):
         """ 执行高保真大图导出的核心逻辑，统一处理 SVG 和高倍率位图输出 """
         try:
+            # 动态检索品质选项元数据，彻底清空硬编码文字比对
+            opt_q = Config.EXPORT_OPTIONS['qualities']
             multiplier = {
-                "标清默认尺寸": 1, "标清默认尺寸1倍": 1, "标清默认尺寸2倍": 2,
-                "标清默认尺寸3倍": 3, "高清默认尺寸1倍": 4, "高清默认尺寸2倍": 6
+                opt_q[0]: 1, opt_q[1]: 1, opt_q[2]: 2,
+                opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
             }[self.quality_var.get()]
 
-            export_dir = os.path.join(os.getcwd(), "导出结果") if self.dir_mode_var.get() == "当前目录（导出结果）" else self.custom_dir_var.get()
+            # 目录判定亦改用统一配置项
+            default_dir_mode = Config.EXPORT_OPTIONS['dir_modes'][0]
+            if self.dir_mode_var.get() == default_dir_mode:
+                export_dir = os.path.join(os.getcwd(), "导出结果")
+            else:
+                export_dir = self.custom_dir_var.get()
+
             if not export_dir:
                 raise ValueError("已选择“自定义目录”，但尚未通过“浏览目录”按钮指定具体导出路径。")
             os.makedirs(export_dir, exist_ok=True)
@@ -213,19 +252,25 @@ class ExportDialog:
 
     def _add_combo(self, parent, label, var, values):
         """ 通用组合框下拉组件封装 """
-        tk.Label(parent, text=label, bg="#ffffff", font=("SimSun", 10)).pack(anchor=tk.W, pady=(6, 2))
+        tk.Label(
+            parent, 
+            text=label, 
+            bg=Config.LAYOUT['export_ctrl_bg'], 
+            font=Config.FONTS['zh_normal']
+        ).pack(anchor=tk.W, pady=(6, 2))
+        
         combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
         combo.pack(fill=tk.X)
         return combo
 
     def _add_custom_check(self, parent, text, var, command):
         """ 绘制现代化大尺寸的自定义高亮勾选框 """
-        f = tk.Frame(parent, bg="#ffffff")
+        f = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
         f.pack(anchor=tk.W, pady=(0, Config.LAYOUT['section_pady']))
         sz = Config.LAYOUT['check_size']
-        canvas = tk.Canvas(f, width=sz+4, height=sz+4, bg="#ffffff", highlightthickness=0, cursor="hand2")
+        canvas = tk.Canvas(f, width=sz+4, height=sz+4, bg=Config.LAYOUT['export_ctrl_bg'], highlightthickness=0, cursor="hand2")
         canvas.pack(side=tk.LEFT)
-        lbl = tk.Label(f, text=text, bg="#ffffff", font=Config.FONTS['zh_normal'], cursor="hand2")
+        lbl = tk.Label(f, text=text, bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], cursor="hand2")
         lbl.pack(side=tk.LEFT, padx=5)
         
         def refresh():
