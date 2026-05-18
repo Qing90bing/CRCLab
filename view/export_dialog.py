@@ -120,7 +120,7 @@ class ExportDialog:
             self._update_preview,
             bg=Config.LAYOUT['export_ctrl_bg']
         )
-        self.border_check.pack(anchor=tk.W, pady=(0, Config.LAYOUT['section_pady']))
+        self.border_check.pack(anchor=tk.W, pady=(28, Config.LAYOUT['section_pady']))
         
         self._add_combo(parent, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
  
@@ -176,9 +176,13 @@ class ExportDialog:
         )
         self.size_lbl.pack(fill=tk.X, pady=2)
 
+        # 弹性占位符：利用 pack 机制的 expand 属性自动拉伸，将按钮强制推到底部
+        spacer = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
+        spacer.pack(fill=tk.BOTH, expand=True)
+
         # 4. 双排动作按钮（取消 vs 开始导出）
         btn_frame = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
-        btn_frame.pack(fill=tk.X, pady=(10, 0))
+        btn_frame.pack(fill=tk.X, pady=(10, 16))
         
         # 取消按钮，采用标准的 ttk.Button
         self.cancel_btn = ttk.Button(
@@ -497,6 +501,8 @@ class ExportDialog:
         
         ctx = self.app._get_render_context()
         ctx['view_scale'] = 1.0
+        ctx['show_border'] = self.border_var.get()
+        ctx['color_mode'] = self.color_var.get()
         
         # 1. 建立指定输出路径的 EMF 绘图上下文
         path_ptr = ctypes.c_wchar_p(out_path)
@@ -548,11 +554,30 @@ class ExportDialog:
         # 3. 创建 GDI 拦截器进行绘制
         draw_proxy = EMFInterceptDraw(hdc, x0, y0, ssaa_factor, p)
         
-        # 4. 在 GDI 上完整绘制整个算式
+        # 4. 绘制底板背景颜色 (sheet_bg_color)
+        # 将物理范围 [0, 0, w_sheet, h_sheet] 反向映射回拦截器的输入坐标系中
+        sheet_bg_color = ctx.get('sheet_bg_color', '#ffffff')
+        draw_proxy.rectangle(
+            [x0 - p * ssaa_factor, y0 - p * ssaa_factor, x1 + p * ssaa_factor, y1 + p * ssaa_factor],
+            fill=sheet_bg_color,
+            outline=None
+        )
+        
+        # 5. 在 GDI 上完整绘制整个算式
         renderer._draw_quotient(draw_proxy, q, L, ctx_ssaa, ox, oy)
         line_y = renderer._draw_header_elements(draw_proxy, dividend, L, ctx_ssaa, ox, oy)
         renderer._draw_operands(draw_proxy, data, dividend, divisor, line_y, L, ctx_ssaa, ox, oy)
         renderer._draw_steps(draw_proxy, rows, data, line_y, L, ctx_ssaa, ox, oy)
+
+        # 6. 如果启用了纸张边框，则在顶层绘制外边框线
+        if ctx.get('show_border', True):
+            border_w = max(1.0, 2.0 * ctx['view_scale'])
+            draw_proxy.rectangle(
+                [x0 - p * ssaa_factor, y0 - p * ssaa_factor, x1 + p * ssaa_factor, y1 + p * ssaa_factor],
+                fill=None,
+                outline="#000000",
+                width=border_w * ssaa_factor
+            )
 
     def _save_bitmap(self, out_path, multiplier):
         """ 在内存中以指定的分辨率渲染并写入位图文件 """
