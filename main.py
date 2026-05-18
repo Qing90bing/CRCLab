@@ -114,7 +114,7 @@ class CRCVisualizerApp:
         """ 构建整体 UI 框架：左侧解耦参数面板 + 右侧核心画布区域 """
         win_w = self.root.winfo_width()
         if win_w <= 1:
-            win_w = min(1600, int(self.root.winfo_screenwidth() * 0.9))
+            win_w = min(Config.LAYOUT['default_screen_width_fallback'], int(self.root.winfo_screenwidth() * 0.9))
         side_w = max(Config.LAYOUT['min_side_width'], int(win_w * Config.LAYOUT['side_ratio']))
         
         # 1. 挂载解耦的控制侧边栏视图
@@ -148,10 +148,10 @@ class CRCVisualizerApp:
             bd=0, 
             highlightthickness=1, 
             highlightbackground=Config.COLORS['border_enabled'], 
-            padx=16, 
-            pady=8
+            padx=Config.LAYOUT['toolbar_padding_x'], 
+            pady=Config.LAYOUT['toolbar_padding_y']
         )
-        tb.place(relx=0.5, y=35, anchor="n")
+        tb.place(relx=0.5, y=Config.LAYOUT['toolbar_y_offset'], anchor="n")
         
         # 缩放控制区域：包括放大、缩小及当前比例指示标签
         ttk.Button(tb, text="－", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']), 
@@ -163,7 +163,7 @@ class CRCVisualizerApp:
                    style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
         
         # 垂直分割线
-        tk.Frame(tb, width=1, bg=Config.COLORS['toolbar_divider'], height=24).pack(side=tk.LEFT, padx=14)
+        tk.Frame(tb, width=1, bg=Config.COLORS['toolbar_divider'], height=Config.LAYOUT['toolbar_divider_height']).pack(side=tk.LEFT, padx=Config.LAYOUT['toolbar_divider_padx'])
         
         # 适应屏幕与重置比例控制按钮
         ttk.Button(tb, text=Config.UI_TEXT['btn_fit'], command=self.center_view, 
@@ -192,7 +192,7 @@ class CRCVisualizerApp:
             finally:
                 self._render_pending = False
                 
-        self.root.after(15, run_generation)
+        self.root.after(Config.LAYOUT['render_debounce_ms'], run_generation)
 
     def _actual_generate(self, auto_center=False, force_rebuild=True):
         """ 渲染执行逻辑，通过基准缓存图解耦缩放计算与排版绘制 """
@@ -234,7 +234,8 @@ class CRCVisualizerApp:
         self.canvas.delete("all")
         self.canvas.config(bg=self.canvas_bg_color)
         self.canvas.create_image(0, 0, image=self.photo_img, anchor="center")
-        self.canvas.config(scrollregion=(-3000, -3000, 3000, 3000))
+        scroll_bound = Config.LAYOUT['canvas_scroll_bound']
+        self.canvas.config(scrollregion=(-scroll_bound, -scroll_bound, scroll_bound, scroll_bound))
         
         if auto_center:
             self.center_view()
@@ -269,7 +270,7 @@ class CRCVisualizerApp:
             self.generate(auto_center=False, force_rebuild=False)
 
     def on_mousewheel(self, event):
-        self.view_scale = max(Config.LAYOUT['zoom_min'], min(5.0, getattr(self, 'view_scale', 1.0) * (Config.LAYOUT['zoom_in_factor'] if event.delta > 0 else Config.LAYOUT['zoom_out_factor'])))
+        self.view_scale = max(Config.LAYOUT['zoom_min'], min(Config.LAYOUT['zoom_mousewheel_max'], getattr(self, 'view_scale', 1.0) * (Config.LAYOUT['zoom_in_factor'] if event.delta > 0 else Config.LAYOUT['zoom_out_factor'])))
         self.update_zoom_display()
         self.generate(auto_center=False, force_rebuild=False)
 
@@ -281,8 +282,9 @@ class CRCVisualizerApp:
         bbox = self.canvas.bbox("all")
         if not bbox: return
         cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
-        self.canvas.xview_moveto(((bbox[0]+bbox[2])/2 - cw/2 + 3000) / 6000)
-        self.canvas.yview_moveto(((bbox[1]+bbox[3])/2 - ch/2 + 3000) / 6000)
+        scroll_bound = Config.LAYOUT['canvas_scroll_bound']
+        self.canvas.xview_moveto(((bbox[0]+bbox[2])/2 - cw/2 + scroll_bound) / (scroll_bound * 2))
+        self.canvas.yview_moveto(((bbox[1]+bbox[3])/2 - ch/2 + scroll_bound) / (scroll_bound * 2))
 
     def reset_view(self):
         self.view_scale = 1.0

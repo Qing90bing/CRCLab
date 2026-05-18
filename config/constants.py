@@ -165,6 +165,17 @@ class Config:
         'success_dialog_h': 300,         # 导出成功弹窗高度
         'success_dialog_pad': 30,        # 弹窗内边距 (Padding)
         'success_icon_size': 64,         # 成功圆勾徽章的物理大小
+        
+        # 主窗口浮动工具栏及画布交互控制参数
+        'toolbar_y_offset': 35,          # 浮动工具栏的 y 轴偏移量
+        'toolbar_padding_x': 16,         # 工具栏内部水平 Padding
+        'toolbar_padding_y': 8,          # 工具栏内部垂直 Padding
+        'toolbar_divider_padx': 14,      # 分割线水平间距
+        'toolbar_divider_height': 24,    # 分割线高度
+        'render_debounce_ms': 15,        # 图像生成主防抖延迟时间 (毫秒)
+        'canvas_scroll_bound': 3000,     # 画布无限滚动范围的物理边界半宽
+        'zoom_mousewheel_max': 5.0,      # 鼠标滚轮缩放的最大上限
+        'default_screen_width_fallback': 1600, # 屏幕尺寸获取失败时的宽度默认备用值
     }
 
     # 默认业务参数配置表：程序启动时的初始状态
