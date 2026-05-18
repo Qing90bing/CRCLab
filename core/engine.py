@@ -63,11 +63,19 @@ class CRCEngine:
             else:
                 q += '0'
 
-        # 最终余数提取（除法结束后的最后结果）
+        # 最终余数提取（除法结束后的最后结果，获取自 last_i 至被除数末尾的全部余数）
         rows.append({
             'type': 'remainder',
-            'val': rem[last_i:last_i+n],
+            'val': rem[last_i:],
             'offset': last_i
         })
+
+        # 优化减法横线的长度，使其自动适应并向右延伸覆盖下方被拉下来的数字
+        for idx, row in enumerate(rows):
+            if row['type'] == 'line' and idx + 1 < len(rows):
+                next_row = rows[idx + 1]
+                if next_row['type'] in ('working', 'remainder'):
+                    end_col = max(row['offset'] + n, next_row['offset'] + len(next_row['val']))
+                    row['len'] = end_col - row['offset']
         
         return q, rows, dividend
