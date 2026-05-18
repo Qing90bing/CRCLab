@@ -60,6 +60,7 @@ class SVGExporter(BaseExporter):
         ctx['view_scale'] = 1.0
         ctx['show_border'] = show_border
         ctx['color_mode'] = color_mode
+        ctx['is_preview'] = False
         
         svg_content = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, ctx)
         with open(out_path, "w", encoding="utf-8") as f:
@@ -73,6 +74,7 @@ class SVGExporter(BaseExporter):
         svg_ctx = ctx.copy()
         svg_ctx['color_mode'] = color_mode
         svg_ctx['show_border'] = show_border
+        svg_ctx['is_preview'] = False
         
         svg_content = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, svg_ctx)
         size_kb = len(svg_content.encode("utf-8")) / 1024.0
@@ -282,8 +284,8 @@ class SVGExporter(BaseExporter):
         """
         核心色彩过滤算法：支持灰度、黑白及彩色过滤，并分离出 Hex 填充颜色和透明度 opacity。
         """
-        if color_in is None or color_in == "none":
-            return "none", 1.0
+        if color_in is None or color_in in ("none", "transparent"):
+            return "none", 0.0
             
         r, g, b, a = SVGExporter.parse_color(color_in)
         if a == 0:

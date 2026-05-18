@@ -78,9 +78,13 @@ class CanvasRenderer:
         ctx_ssaa = ctx.copy()
         ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
         
+        sheet_bg = ctx['sheet_bg_color']
+        is_transparent_bg = (sheet_bg in ("transparent", "none"))
+
         img_formula = self._render_raw_formula(data, dividend, divisor, q, rows, ctx_ssaa, ssaa_factor)
         if not img_formula:
-            return Image.new("RGBA", (100, 100), ctx['sheet_bg_color'])
+            bg_color = (0, 0, 0, 0) if is_transparent_bg else sheet_bg
+            return Image.new("RGBA", (100, 100), bg_color)
             
         # 计算包含 padding 后的纸张最终物理尺寸
         p = int(ctx['padding'] * ctx['view_scale'])
@@ -88,7 +92,9 @@ class CanvasRenderer:
         h_sheet = img_formula.height + 2 * p
         
         # 新建 RGBA 纸张并贴入算式
-        img_sheet = Image.new("RGBA", (w_sheet, h_sheet), ctx['sheet_bg_color'])
+        bg_color = (0, 0, 0, 0) if is_transparent_bg else sheet_bg
+        img_sheet = Image.new("RGBA", (w_sheet, h_sheet), bg_color)
+            
         img_sheet.paste(img_formula, (p, p), img_formula)
         
         # 绘制纸张外框线
@@ -180,9 +186,9 @@ class CanvasRenderer:
         text_y = line_y + L['cell_h'] * 0.1
         cy = text_y + L['cell_h']/2
         
-        # 1. 优先绘制补零标记背景块（RGBA 柔和半透明）
+        # 1. 优先绘制补零标记背景块（RGBA 柔和半透明，若为透明则跳过绘制）
         pad_idx = len(data)
-        if ctx['show_gray'] and pad_idx < len(dividend):
+        if pad_idx < len(dividend) and ctx['bg_block_color'] not in ("transparent", "none"):
             bx0 = ox + (L['pad_cells'] + pad_idx) * L['cell_w'] + L['grid_base'] * 0.15
             bx1 = ox + (L['pad_cells'] + len(dividend)) * L['cell_w'] - L['grid_base'] * 0.15
             by0 = oy + text_y + L['cell_h']*0.05
@@ -197,7 +203,7 @@ class CanvasRenderer:
         # 3. 绘制右侧被除数
         for i, char in enumerate(dividend):
             cx = ox + (L['pad_cells'] + i) * L['cell_w'] + L['cell_w']/2
-            color = ctx['bg_digit_color'] if (ctx['show_gray'] and i >= pad_idx) else ctx['digit_color']
+            color = ctx['bg_digit_color'] if i >= pad_idx else ctx['digit_color']
             draw.text((cx, oy + cy), text=char, font=L['font'], fill=color, anchor="mm")
 
     def _draw_steps(self, draw, rows, data, line_y, L, ctx, ox, oy):
@@ -222,8 +228,8 @@ class CanvasRenderer:
         """ 绘制单个异或数值行 """
         cy = cy_base + L['cell_h']/2
         
-        # 1. 绘制余数行的补零灰色标记块
-        if row['type'] == 'remainder' and ctx['show_gray']:
+        # 1. 绘制余数行的补零灰色标记块（若为透明则跳过绘制）
+        if row['type'] == 'remainder' and ctx['bg_block_color'] not in ("transparent", "none"):
             pad_s = len(data) - row['offset']
             if 0 <= pad_s < len(row['val']):
                 bx0 = ox + (L['pad_cells'] + row['offset'] + pad_s) * L['cell_w'] + L['grid_base'] * 0.15
@@ -237,6 +243,18 @@ class CanvasRenderer:
             cx = ox + (L['pad_cells'] + row['offset'] + i) * L['cell_w'] + L['cell_w']/2
             color = ctx['digit_color']
             # 被拉下来的补零数字显示特殊颜色
-            if row['type'] == 'remainder' and ctx['show_gray'] and i >= (len(data) - row['offset']):
+            if row['type'] == 'remainder' and i >= (len(data) - row['offset']):
                 color = ctx['bg_digit_color']
             draw.text((cx, oy + cy), text=char, font=L['font'], fill=color, anchor="mm")
+
+    def _fill_checkerboard(self, img, size=10):
+        """ 在图像底板上用柔和灰白棋盘格填充，指示预览状态下的透明背景 """
+        draw = ImageDraw.Draw(img)
+        w, h = img.size
+        for x in range(0, w, size):
+            for y in range(0, h, size):
+                if ((x // size) + (y // size)) % 2 == 1:
+                    # 使用非常雅致微弱的浅灰色
+                    draw.rectangle([x, y, x + size - 1, y + size - 1], fill="#f1f5f9", outline=None)
+                else:
+                    draw.rectangle([x, y, x + size - 1, y + size - 1], fill="#ffffff", outline=None)

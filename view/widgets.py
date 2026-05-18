@@ -94,14 +94,17 @@ class ModernScale(tk.Frame):
 class ColorSwatchRow(tk.Frame):
     """
     色彩配置行。
-    左侧显示名称标签，右侧显示对齐的色彩框，支持拾色交互与联动。
+    左侧显示名称标签，右侧显示对齐的色彩框，支持拾色交互与透明联动。
     """
-    def __init__(self, parent, text, attr, initial_color, on_click_callback, bg=None):
+    def __init__(self, parent, text, attr, initial_color, on_click_callback, on_transparent_toggle=None, allow_transparent=False, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
         super().__init__(parent, bg=bg_color)
         
         self.attr = attr
         self.on_click_callback = on_click_callback
+        self.on_transparent_toggle = on_transparent_toggle
+        self.allow_transparent = allow_transparent
+        self.last_solid_color = initial_color if initial_color not in ("transparent", "none") else "#ffffff"
         
         # 左侧优雅标签
         self.lbl = tk.Label(self, text=text, bg=bg_color, font=Config.FONTS['zh_normal'])
@@ -113,12 +116,12 @@ class ColorSwatchRow(tk.Frame):
             self, 
             width=Config.LAYOUT['color_swatch_w'], 
             height=Config.LAYOUT['color_swatch_h'], 
-            bg=initial_color, 
+            bg="#ffffff" if initial_color in ("transparent", "none") else initial_color, 
             highlightthickness=1, 
             highlightbackground=Config.COLORS['border_enabled'],
             relief=tk.SUNKEN, 
             bd=1,
-            cursor="hand2"
+            cursor="" if initial_color in ("transparent", "none") else "hand2"
         )
         self.canvas.pack(side=tk.RIGHT, anchor=tk.E)
         
@@ -126,6 +129,54 @@ class ColorSwatchRow(tk.Frame):
         self.canvas.bind("<Enter>", self._on_enter)
         self.canvas.bind("<Leave>", self._on_leave)
         
+        # 如果支持透明，在色彩块左侧加透明复选框
+        if self.allow_transparent:
+            self.is_transparent_var = tk.BooleanVar(value=(initial_color in ("transparent", "none")))
+            self.trans_check = tk.Checkbutton(
+                self, 
+                text="透明", 
+                variable=self.is_transparent_var, 
+                command=self._on_trans_toggle,
+                bg=bg_color, 
+                font=Config.FONTS['zh_normal'],
+                activebackground=bg_color,
+                highlightthickness=0
+            )
+            self.trans_check.pack(side=tk.RIGHT, padx=(0, 10), anchor=tk.E)
+            
+            # 若初始化时就是透明，绘制棋盘格
+            if self.is_transparent_var.get():
+                self.after(10, self._draw_checkerboard)
+                
+    def _draw_checkerboard(self):
+        """ 绘制灰白相间的棋盘格，指示透明 """
+        self.canvas.delete("checker")
+        w = Config.LAYOUT['color_swatch_w']
+        h = Config.LAYOUT['color_swatch_h']
+        size = 6  # 棋盘格大小为 6 像素
+        for x in range(0, w, size):
+            for y in range(0, h, size):
+                if ((x // size) + (y // size)) % 2 == 1:
+                    self.canvas.create_rectangle(
+                        x + 1, y + 1, x + size + 1, y + size + 1,
+                        fill="#e2e8f0", outline="", tags="checker"
+                    )
+
+    def _on_trans_toggle(self):
+        """ 用户勾选或取消勾选透明复选框时的动作 """
+        is_trans = self.is_transparent_var.get()
+        if is_trans:
+            self.canvas.config(cursor="")
+            self._draw_checkerboard()
+            if self.on_transparent_toggle:
+                self.on_transparent_toggle(self.attr, True)
+        else:
+            self.canvas.config(cursor="hand2")
+            self.canvas.delete("checker")
+            self.canvas.config(bg=self.last_solid_color)
+            if self.on_transparent_toggle:
+                self.on_transparent_toggle(self.attr, False, self.last_solid_color)
+
     def _on_enter(self, event):
         """ 鼠标悬停时高亮色彩槽边框 """
         if self.canvas.cget("cursor") == "hand2":
@@ -142,13 +193,29 @@ class ColorSwatchRow(tk.Frame):
             
     def update_color(self, color):
         """ 刷新色彩块的背景颜色 """
-        self.canvas.config(bg=color)
+        if color in ("transparent", "none"):
+            if self.allow_transparent:
+                self.is_transparent_var.set(True)
+            self.canvas.config(cursor="", bg="#ffffff")
+            self._draw_checkerboard()
+        else:
+            if self.allow_transparent:
+                self.is_transparent_var.set(False)
+            self.last_solid_color = color
+            self.canvas.config(cursor="hand2")
+            self.canvas.delete("checker")
+            self.canvas.config(bg=color)
         
     def set_state(self, enabled):
         """ 设置该配置项的启用/禁用置灰状态 """
         if enabled:
-            self.canvas.config(cursor="hand2", highlightbackground=Config.COLORS['border_enabled'])
+            if not (self.allow_transparent and self.is_transparent_var.get()):
+                self.canvas.config(cursor="hand2", highlightbackground=Config.COLORS['border_enabled'])
             self.lbl.config(fg=Config.COLORS['fg_enabled'])
+            if self.allow_transparent:
+                self.trans_check.config(state=tk.NORMAL)
         else:
             self.canvas.config(cursor="", highlightbackground=Config.COLORS['border_disabled'])
             self.lbl.config(fg=Config.COLORS['fg_disabled'])
+            if self.allow_transparent:
+                self.trans_check.config(state=tk.DISABLED)

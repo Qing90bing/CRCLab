@@ -1,6 +1,7 @@
 import ctypes
 import tkinter as tk
 from tkinter import messagebox, colorchooser, ttk
+from PIL import Image, ImageTk, ImageDraw
 
 # 导入自定义模块
 from core.engine import CRCEngine
@@ -26,6 +27,10 @@ class CRCVisualizerApp:
         self.view_scale = 1.0  # 全局缩放比例
         self.photo_img = None  # 强引用保持，防止 Tkinter 图像垃圾回收
         
+        # 预先物理渲染大画布的灰白棋盘格背景图
+        self.canvas_bg_image_pil = self._create_large_checkerboard()
+        self.canvas_bg_image = ImageTk.PhotoImage(self.canvas_bg_image_pil)
+        
         # 2. 基础数据状态与配色加载
         self._init_variables()
         self._load_default_colors()
@@ -39,7 +44,6 @@ class CRCVisualizerApp:
         
         # 5. 执行首次图像渲染生成与居中显示
         self.root.update_idletasks()
-        self.update_ui_states()
         self.generate(auto_center=True)
         self.root.after(100, self.center_view)
 
@@ -50,7 +54,6 @@ class CRCVisualizerApp:
         dv = Config.DEFAULT_VALUES
         self.data_var = tk.StringVar(value=dv['data'])
         self.divisor_var = tk.StringVar(value=dv['divisor'])
-        self.show_gray_var = tk.BooleanVar(value=dv['show_gray'])
         
         # 物理排版参数微调变量
         self.font_size_var = tk.IntVar(value=dv['font_size'])
@@ -138,6 +141,8 @@ class CRCVisualizerApp:
         self.canvas.bind("<ButtonPress-1>", self.start_pan)
         self.canvas.bind("<B1-Motion>", self.do_pan)
         self.canvas.bind("<MouseWheel>", self.on_mousewheel)
+        # 绑定画布大小改变（及首次物理渲染显示事件），动态刷新大底图对齐
+        self.canvas.bind("<Configure>", lambda e: self._update_bg_position())
 
     def _setup_canvas_toolbar(self, parent):
         """ 构建画布上方的浮动控制工具栏 """
@@ -232,8 +237,24 @@ class CRCVisualizerApp:
         # 3. 在画布上渲染图像并更新滚动范围
         self.photo_img = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
-        self.canvas.config(bg=self.canvas_bg_color)
-        self.canvas.create_image(0, 0, image=self.photo_img, anchor="center")
+        
+        # 核心数学奥义：获取当前视口中心，并用 15 像素格子对齐，使得背景图大棋盘格在空间中静止且永远铺满
+        cx_aligned, cy_aligned = 0, 0
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        if w > 10 and h > 10:
+            x0 = self.canvas.canvasx(0)
+            y0 = self.canvas.canvasy(0)
+            cx = x0 + w / 2
+            cy = y0 + h / 2
+            size = 15
+            cx_aligned = int((cx // size) * size)
+            cy_aligned = int((cy // size) * size)
+            
+        # 优先在底层铺设大棋盘格背景图
+        self.canvas.create_image(cx_aligned, cy_aligned, image=self.canvas_bg_image, anchor="center", tags="canvas_bg")
+        # 贴上长除法算式纸面图
+        self.canvas.create_image(0, 0, image=self.photo_img, anchor="center", tags="formula")
         scroll_bound = Config.LAYOUT['canvas_scroll_bound']
         self.canvas.config(scrollregion=(-scroll_bound, -scroll_bound, scroll_bound, scroll_bound))
         
@@ -250,8 +271,9 @@ class CRCVisualizerApp:
             'v_spacing': self.v_spacing_var.get(),
             'line_width': self.line_width_var.get(),
             'padding': self.padding_var.get(),
-            'show_gray': self.show_gray_var.get(),
+            'show_gray': True,
             'show_border': True,
+            'is_preview': True,
             'ext_left': self.line_ext_left_var.get(),
             'ext_right': self.line_ext_right_var.get(),
             'curve_span_left': self.curve_span_left_var.get(),
@@ -279,12 +301,14 @@ class CRCVisualizerApp:
             self.zoom_lbl.config(text=f"{int(self.view_scale * 100)}%")
 
     def center_view(self):
-        bbox = self.canvas.bbox("all")
+        bbox = self.canvas.bbox("formula")
         if not bbox: return
         cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
         scroll_bound = Config.LAYOUT['canvas_scroll_bound']
         self.canvas.xview_moveto(((bbox[0]+bbox[2])/2 - cw/2 + scroll_bound) / (scroll_bound * 2))
         self.canvas.yview_moveto(((bbox[1]+bbox[3])/2 - ch/2 + scroll_bound) / (scroll_bound * 2))
+        # 居中平移视口后，立即重新更新背景棋盘格图元的位置
+        self._update_bg_position()
 
     def reset_view(self):
         self.view_scale = 1.0
@@ -296,14 +320,42 @@ class CRCVisualizerApp:
 
     def do_pan(self, event):
         self.canvas.scan_dragto(event.x, event.y, gain=1)
+        self._update_bg_position()
+
+    def _update_bg_position(self):
+        """ 动态计算视区几何中心并对齐格子，使背景图永远稳定铺满视口且格底静止 """
+        if hasattr(self, 'canvas') and self.canvas.find_withtag("canvas_bg"):
+            x0 = self.canvas.canvasx(0)
+            y0 = self.canvas.canvasy(0)
+            w = self.canvas.winfo_width()
+            h = self.canvas.winfo_height()
+            if w > 10 and h > 10:
+                cx = x0 + w / 2
+                cy = y0 + h / 2
+                size = 15
+                cx_aligned = int((cx // size) * size)
+                cy_aligned = int((cy // size) * size)
+                self.canvas.coords("canvas_bg", cx_aligned, cy_aligned)
 
     def pick_color(self, attr):
         """ 打开系统调色板选择颜色，并同步更新侧边栏预览色块与画布 """
-        color = colorchooser.askcolor(initialcolor=getattr(self, attr))[1]
+        init_color = getattr(self, attr)
+        if init_color in ("transparent", "none"):
+            init_color = "#ffffff"
+        color = colorchooser.askcolor(initialcolor=init_color)[1]
         if color:
             setattr(self, attr, color)
             self.sidebar.update_swatches()
             self.generate()
+
+    def on_transparent_toggle(self, attr, is_trans, recovery_color=None):
+        """ 响应色彩透明状态切换回调，并重绘图解 """
+        if is_trans:
+            setattr(self, attr, "transparent")
+        else:
+            setattr(self, attr, recovery_color if recovery_color else "#ffffff")
+        self.sidebar.update_swatches()
+        self.generate()
 
     def reset_colors(self):
         self._load_default_colors()
@@ -327,18 +379,22 @@ class CRCVisualizerApp:
             self.divisor_var.set(poly)
             self.generate(True)
 
-    def on_toggle_gray(self):
-        self.update_ui_states()
-        self.generate(False)
 
-    def update_ui_states(self):
-        is_gray_enabled = self.show_gray_var.get()
-        if hasattr(self, 'sidebar'):
-            self.sidebar.update_states(is_gray_enabled)
 
     def open_export_dialog(self):
         """ 打开导出配置对话框 """
         ExportDialog(self)
+
+    def _create_large_checkerboard(self, w=3000, h=3000, size=15):
+        """ 在大画布的背景图像上平铺柔和灰白相间的棋盘格，指示透明底层 """
+        img = Image.new("RGBA", (w, h), "#ffffff")
+        draw = ImageDraw.Draw(img)
+        for x in range(0, w, size):
+            for y in range(0, h, size):
+                if ((x // size) + (y // size)) % 2 == 1:
+                    # 使用极其柔雅的配置
+                    draw.rectangle([x, y, x + size - 1, y + size - 1], fill="#f1f5f9", outline=None)
+        return img
 
 if __name__ == "__main__":
     # Windows 系统高 DPI 适配

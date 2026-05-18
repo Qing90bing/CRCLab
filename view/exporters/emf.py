@@ -100,6 +100,10 @@ class EMFInterceptDraw:
         return r | (g << 8) | (b << 16)
 
     def rectangle(self, xy, fill=None, outline=None, width=1, *args, **kwargs):
+        if fill in ("transparent", "none"):
+            fill = None
+        if outline in ("transparent", "none"):
+            outline = None
         x1, y1, x2, y2 = xy
         tx1, ty1, tx2, ty2 = self._t_x(x1), self._t_y(y1), self._t_x(x2), self._t_y(y2)
         
@@ -126,6 +130,8 @@ class EMFInterceptDraw:
             self.gdi.DeleteObject(self.gdi.SelectObject(self.hdc, old_pen))
 
     def line(self, xy, fill="#374151", width=2, *args, **kwargs):
+        if fill in ("transparent", "none"):
+            return
         if len(xy) < 2:
             return
             
@@ -144,6 +150,8 @@ class EMFInterceptDraw:
         self.gdi.DeleteObject(self.gdi.SelectObject(self.hdc, old_pen))
 
     def text(self, xy, text, fill="#000000", font=None, *args, **kwargs):
+        if fill in ("transparent", "none"):
+            return
         x, y = xy
         tx, ty = self._t_x(x), self._t_y(y)
         color = self._rgb_to_colorref(fill)
@@ -277,13 +285,14 @@ class EMFExporter(BaseExporter):
         ox = Config.LAYOUT['draw_origin_offset'] * s
         oy = Config.LAYOUT['draw_origin_offset'] * s
         
-        # 绘制背景底板
+        # 绘制背景底板（若为透明底则跳过绘制）
         sheet_bg_color = ctx_ssaa.get('sheet_bg_color', '#ffffff')
-        draw_proxy.rectangle(
-            [x0 - p * ssaa_factor, y0 - p * ssaa_factor, x1 + p * ssaa_factor, y1 + p * ssaa_factor],
-            fill=sheet_bg_color,
-            outline=None
-        )
+        if sheet_bg_color not in ("transparent", "none"):
+            draw_proxy.rectangle(
+                [x0 - p * ssaa_factor, y0 - p * ssaa_factor, x1 + p * ssaa_factor, y1 + p * ssaa_factor],
+                fill=sheet_bg_color,
+                outline=None
+            )
         
         # 绘制长除法各图元部分
         renderer._draw_quotient(draw_proxy, q, L, ctx_ssaa, ox, oy)

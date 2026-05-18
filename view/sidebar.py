@@ -94,15 +94,6 @@ class SidebarPanel(tk.Frame):
         self.poly_combo.set(list(Config.STD_POLYS.keys())[0])
         self.poly_combo.pack(fill=tk.X, pady=(0, Config.LAYOUT['entry_pady']))
         self.poly_combo.bind("<<ComboboxSelected>>", self.app.on_poly_selected)
-
-        # 4. 补零标记开关，使用 ModernCheckbutton 扁平化小部件
-        self.show_gray_check = ModernCheckbutton(
-            parent, 
-            Config.UI_TEXT['gray_toggle'], 
-            self.app.show_gray_var, 
-            self.app.on_toggle_gray
-        )
-        self.show_gray_check.pack(anchor=tk.W, pady=(0, Config.LAYOUT['section_pady']))
         
         tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
 
@@ -139,22 +130,23 @@ class SidebarPanel(tk.Frame):
         tk.Label(parent, text=Config.UI_TEXT['color_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
         
         color_attrs = [
-            ('bg_block_color', Config.UI_TEXT['label_bg_block_color']),
-            ('bg_digit_color', Config.UI_TEXT['label_bg_digit_color']),
-            ('digit_color', Config.UI_TEXT['label_digit_color']),
-            ('line_color', Config.UI_TEXT['label_line_color']),
-            ('sheet_bg_color', Config.UI_TEXT['label_sheet_bg_color']),
-            ('canvas_bg_color', Config.UI_TEXT['label_canvas_bg_color'])
+            ('bg_block_color', Config.UI_TEXT['label_bg_block_color'], True),
+            ('bg_digit_color', Config.UI_TEXT['label_bg_digit_color'], False),
+            ('digit_color', Config.UI_TEXT['label_digit_color'], False),
+            ('line_color', Config.UI_TEXT['label_line_color'], False),
+            ('sheet_bg_color', Config.UI_TEXT['label_sheet_bg_color'], True)
         ]
         
         self.color_rows = {}
-        for attr, text in color_attrs:
+        for attr, text, allow_trans in color_attrs:
             row = ColorSwatchRow(
                 parent, 
                 text, 
                 attr, 
                 initial_color=getattr(self.app, attr), 
-                on_click_callback=self.app.pick_color
+                on_click_callback=self.app.pick_color,
+                on_transparent_toggle=self.app.on_transparent_toggle,
+                allow_transparent=allow_trans
             )
             row.pack(fill=tk.X, pady=6)
             self.color_rows[attr] = row
@@ -171,9 +163,3 @@ class SidebarPanel(tk.Frame):
         """ 响应色彩重置或重新选取，动态同步色彩块底色 """
         for attr, row in self.color_rows.items():
             row.update_color(getattr(self.app, attr))
-
-    def update_states(self, is_gray_enabled):
-        """ 根据“是否显示补零”开关状态，联动设置“背景块”和“块内字”颜色行的置灰状态 """
-        for attr in ['bg_block_color', 'bg_digit_color']:
-            if attr in self.color_rows:
-                self.color_rows[attr].set_state(is_gray_enabled)

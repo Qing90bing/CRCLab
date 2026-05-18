@@ -12,8 +12,7 @@ class Config:
         'bg_block_color': "#f3f4f6",   # 补零区域的背景块颜色（淡灰色）
         'bg_digit_color': "#000000",   # 补零区域内的数字颜色
         'line_color': "#374151",       # 除法横线、弧线及边框颜色
-        'sheet_bg_color': "#ffffff",   # 模拟纸张的背景底色
-        'canvas_bg_color': "#d1d5db"   # 绘图区域最底层的背景色
+        'sheet_bg_color': "#ffffff"    # 模拟纸张的背景底色
     }
 
     COLORS = {
@@ -64,7 +63,6 @@ class Config:
         'title': "CRC 长除法解析与验证工具",
         'data_label': "数据位:",
         'poly_label': "多项式:",
-        'gray_toggle': "显示补零标记",
         'font_size': "文字大小:",
         'h_spacing': "字符间距:",
         'v_spacing': "行间距:",
@@ -89,7 +87,6 @@ class Config:
         'label_digit_color': "除数被除数数字:",
         'label_line_color': "长除除线及弧线:",
         'label_sheet_bg_color': "图表纸张底版色:",
-        'label_canvas_bg_color': "主窗口画布底层:",
         
         # 导出对话框文字
         'export_title': "导出图表",
@@ -173,7 +170,7 @@ class Config:
         'toolbar_divider_padx': 14,      # 分割线水平间距
         'toolbar_divider_height': 24,    # 分割线高度
         'render_debounce_ms': 15,        # 图像生成主防抖延迟时间 (毫秒)
-        'canvas_scroll_bound': 3000,     # 画布无限滚动范围的物理边界半宽
+        'canvas_scroll_bound': 2000,     # 画布无限滚动范围的物理边界半宽
         'zoom_mousewheel_max': 5.0,      # 鼠标滚轮缩放的最大上限
         'default_screen_width_fallback': 1600, # 屏幕尺寸获取失败时的宽度默认备用值
     }
@@ -190,8 +187,7 @@ class Config:
         'ext_left': 0,           # 线条左端延伸
         'ext_right': 0,          # 线条右端延伸
         'span_left': -0.5,       # 弧线跨度调整
-        'span_right': 0.0,       # 弧线位置偏移
-        'show_gray': True        # 默认开启补零标记
+        'span_right': 0.0        # 弧线位置偏移
     }
 
     # 默认导出配置参数表：统一控制初始业务值

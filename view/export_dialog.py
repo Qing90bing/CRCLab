@@ -197,12 +197,25 @@ class ExportDialog:
         ctx = self.app._get_render_context()
         ctx['view_scale'] = 1.0
         ctx['show_border'] = self.border_var.get()
+        ctx['is_preview'] = True
         
         img = self.app.renderer.render(data, dividend, divisor, q, rows, ctx)
         if self.color_var.get() == Config.EXPORT_OPTIONS['colors'][1]:
-            img = img.convert("L")
+            # 灰度转换无损保留透明通道
+            if img.mode in ("RGBA", "LA"):
+                r, g, b, a = img.split()
+                rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
+                img = Image.merge("RGBA", (rgb_gray, rgb_gray, rgb_gray, a))
+            else:
+                img = img.convert("L")
         elif self.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
-            img = img.convert("1")
+            # 黑白转换无损保留透明通道
+            if img.mode in ("RGBA", "LA"):
+                r, g, b, a = img.split()
+                rgb_bw = Image.merge("RGB", (r, g, b)).convert("1").convert("L")
+                img = Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
+            else:
+                img = img.convert("1")
         
         self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
         self._render_scaled_preview(img)
@@ -218,6 +231,10 @@ class ExportDialog:
                 th = max(1, int(img.height * fit_scale))
                 img = img.resize((tw, th), Image.Resampling.LANCZOS)
         
+        self.preview_canvas.delete("all")
+        # 1. 优先在最底层铺设大背景棋盘格图，确保全系统格子大小一致
+        self.preview_canvas.create_image(0, 0, image=self.app.canvas_bg_image, anchor="center", tags="canvas_bg")
+        # 2. 贴上公式图
         self.preview_photo = ImageTk.PhotoImage(img)
         self.preview_canvas.create_image(0, 0, image=self.preview_photo, anchor="center")
         self.preview_canvas.config(scrollregion=(-3000, -3000, 3000, 3000))
