@@ -1,8 +1,11 @@
 import os
+import io
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 from PIL import Image, ImageTk
 from config.constants import Config
+from view.widgets import ModernCheckbutton
+from view.svg_renderer import SVGRenderer
 
 class ExportDialog:
     """
@@ -10,14 +13,15 @@ class ExportDialog:
     
     采用高内聚设计，将原本混杂在 main.py 中的导出 UI 构建、
     实时高保真预览重绘、以及多倍率物理图像输出逻辑完全抽离，实现 SRP 单一职责原则。
-    所有 UI 样式、默认业务状态和选项完全取自 Config 配置中心，实现单一事实来源。
+    使用 view/widgets.py 通用组件以消减大量重复的 Canvas 复选框几何重绘。
     """
     def __init__(self, app):
         """
         初始化并打开导出对话框。
-        :param app: 主应用程序实例，用于共享数据 and 渲染器。
+        :param app: 主应用程序实例，用于共享数据和渲染器。
         """
         self.app = app
+        self._calc_timer = None
         self.dlg = tk.Toplevel(app.root)
         self.dlg.title(Config.UI_TEXT['export_title'])
         self.dlg.transient(app.root)
@@ -65,7 +69,12 @@ class ExportDialog:
             font=Config.FONTS['zh_bold']
         ).pack(anchor=tk.W, pady=(0, 8))
         
-        self.preview_canvas = tk.Canvas(parent, bg=Config.COLORS['preview_canvas_bg'], highlightthickness=1, highlightbackground=Config.COLORS['preview_canvas_border'])
+        self.preview_canvas = tk.Canvas(
+            parent, 
+            bg=Config.COLORS['preview_canvas_bg'], 
+            highlightthickness=1, 
+            highlightbackground=Config.COLORS['preview_canvas_border']
+        )
         self.preview_canvas.pack(fill=tk.BOTH, expand=True)
 
     def _init_control_frame(self, parent):
@@ -92,7 +101,16 @@ class ExportDialog:
         self.dpi_combo = self._add_combo(parent, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
         self.color_combo = self._add_combo(parent, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
         
-        self._add_custom_check(parent, Config.UI_TEXT['export_show_border'], self.border_var, self._update_preview)
+        # 引入通用的 ModernCheckbutton 小部件，消灭 Canvas 冗余绘制
+        self.border_check = ModernCheckbutton(
+            parent, 
+            Config.UI_TEXT['export_show_border'], 
+            self.border_var, 
+            self._update_preview,
+            bg=Config.LAYOUT['export_ctrl_bg']
+        )
+        self.border_check.pack(anchor=tk.W, pady=(0, Config.LAYOUT['section_pady']))
+        
         self._add_combo(parent, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
  
         self.browse_btn = tk.Button(parent, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
@@ -177,7 +195,6 @@ class ExportDialog:
     def _setup_bindings(self):
         """ 绑定变量变化及窗口尺寸重构事件的实时监听 """
         def on_dir_mode_changed(*_):
-            # 比对值采用统一配置元数据，避免硬编码 "自定义目录"
             is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
             self.browse_btn.config(state=(tk.NORMAL if is_custom else tk.DISABLED))
         self.dir_mode_var.trace_add("write", on_dir_mode_changed)
@@ -253,51 +270,79 @@ class ExportDialog:
         fmt = self.fmt_var.get()
         opt_q = Config.EXPORT_OPTIONS['qualities']
         
-        # 获取品质相乘倍率数
         multiplier = {
             opt_q[0]: 1, opt_q[1]: 1, opt_q[2]: 2,
             opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
         }.get(self.quality_var.get(), 1)
         
         if fmt == "svg":
-            # SVG 是矢量图
             w_real = img.width
             h_real = img.height
             
-            # 实时在内存中运行渲染生成临时 SVG 代码，以精确估算其字节文件大小
+            # 调用全新的 SVGRenderer 进行内存转换，高内聚低耦合
             svg_ctx = ctx.copy()
             svg_ctx['color_mode'] = self.color_var.get()
-            svg_content = self.app.renderer.render_to_svg(data, dividend, divisor, q, rows, svg_ctx)
+            svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, svg_ctx)
             size_kb = len(svg_content.encode("utf-8")) / 1024.0
             
             self.width_lbl.config(text=f"导出宽度: {w_real} 像素 (矢量)")
             self.height_lbl.config(text=f"导出高度: {h_real} 像素 (矢量)")
             self.size_lbl.config(text=f"预估大小: {size_kb:.2f} KB")
         else:
-            # 常规位图模式（PNG/JPG）
             w_real = img.width * multiplier
             h_real = img.height * multiplier
             
-            # 物理面积（像素数）
-            pixels = w_real * h_real
+            # 取消之前挂起的防抖精密测算，防止滑块密集操作时阻塞主线程
+            if getattr(self, '_calc_timer', None):
+                try:
+                    self.dlg.after_cancel(self._calc_timer)
+                except Exception:
+                    pass
             
-            if fmt == "png":
-                # PNG 压缩比，因为 CRC 表格是大面积白色无损，压缩率奇高，平均按 0.015 字节/像素估算
-                size_kb = (pixels * 0.015) / 1024.0
-            else:
-                # JPG 有损中度压缩，平均按 0.035 字节/像素估算
-                size_kb = (pixels * 0.035) / 1024.0
-                
-            # 灰度模式和黑白模式会极大地减少存储通道与位深，从而减小物理文件大小
+            # 1. 第一阶段：极速粗算评估（直接在内存中测试保存 1.0 的预览原图，耗时 < 0.5ms，消灭任何滑块拖拽卡顿）
             color_mode = self.color_var.get()
             if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
-                size_kb *= 0.55
+                img_rough = img.convert("L")
             elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
-                size_kb *= 0.22
+                img_rough = img.convert("1")
+            else:
+                img_rough = img
+                
+            save_fmt = "JPEG" if fmt == "jpg" else "PNG"
+            bio = io.BytesIO()
+            try:
+                img_rough.save(bio, format=save_fmt, dpi=(self.dpi_var.get(), self.dpi_var.get()))
+                rough_size = (len(bio.getvalue()) / 1024.0) * (multiplier ** 1.15)
+            except Exception:
+                rough_size = 0.0
                 
             self.width_lbl.config(text=f"导出宽度: {w_real} 像素")
             self.height_lbl.config(text=f"导出高度: {h_real} 像素")
-            self.size_lbl.config(text=f"预估大小: {max(1.0, size_kb):.1f} KB")
+            self.size_lbl.config(text=f"预估大小: {rough_size:.1f} KB (计算中...)")
+            
+            # 2. 第二阶段：防抖 250ms 后，在后台超高清静默重绘并精密测算 100% 绝对物理大小
+            def run_precise_calc():
+                ctx_calc = ctx.copy()
+                ctx_calc['view_scale'] = 1.0 * multiplier
+                ctx_calc['show_border'] = self.border_var.get()
+                try:
+                    img_calc = self.app.renderer.render(data, dividend, divisor, q, rows, ctx_calc)
+                    
+                    if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
+                        img_calc = img_calc.convert("L")
+                    elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
+                        img_calc = img_calc.convert("1")
+                    else:
+                        img_calc = img_calc.convert("RGB")
+                        
+                    bio_precise = io.BytesIO()
+                    img_calc.save(bio_precise, format=save_fmt, dpi=(self.dpi_var.get(), self.dpi_var.get()))
+                    precise_size = len(bio_precise.getvalue()) / 1024.0
+                    self.size_lbl.config(text=f"预估大小: {precise_size:.1f} KB")
+                except Exception:
+                    pass
+            
+            self._calc_timer = self.dlg.after(250, run_precise_calc)
 
     def _recenter_canvas(self):
         """ 智能重算对齐，保证预览图片完美贴附于画布正中央 """
@@ -317,14 +362,12 @@ class ExportDialog:
     def export_chart(self):
         """ 执行高保真大图导出的核心逻辑，统一处理 SVG 和高倍率位图输出 """
         try:
-            # 动态检索品质选项元数据，彻底清空硬编码文字比对
             opt_q = Config.EXPORT_OPTIONS['qualities']
             multiplier = {
                 opt_q[0]: 1, opt_q[1]: 1, opt_q[2]: 2,
                 opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
             }[self.quality_var.get()]
 
-            # 目录判定亦改用统一配置项
             default_dir_mode = Config.EXPORT_OPTIONS['dir_modes'][0]
             if self.dir_mode_var.get() == default_dir_mode:
                 export_dir = os.path.join(os.getcwd(), "导出结果")
@@ -343,9 +386,10 @@ class ExportDialog:
             else:
                 self._save_bitmap(out_path, multiplier)
 
-            messagebox.showinfo(Config.MESSAGES['export_success_title'], f"{Config.MESSAGES['export_success_body']}{out_path}")
+            SuccessDialog(self.dlg, out_path, export_dir)
         except Exception as e:
             self._show_error_dialog(e)
+
 
     def _save_svg(self, out_path):
         """ 保存为 SVG 矢量格式 """
@@ -358,12 +402,13 @@ class ExportDialog:
         ctx['show_border'] = self.border_var.get()
         ctx['color_mode'] = self.color_var.get()
         
-        svg_content = self.app.renderer.render_to_svg(data, dividend, divisor, q, rows, ctx)
+        # 引入外部专一的 SVGRenderer 进行高保真矢量渲染
+        svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, ctx)
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
 
     def _save_bitmap(self, out_path, multiplier):
-        """ 在内存中以指定高分辨率物理超采样重绘并写入位图文件 """
+        """ 在内存中以指定 high-DPI 物理重绘并写入位图文件 """
         data = self.app.data_var.get().strip()
         divisor = self.app.divisor_var.get().strip()
         q, rows, dividend = self.app.engine.calculate(data, divisor)
@@ -407,30 +452,74 @@ class ExportDialog:
         combo.pack(fill=tk.X)
         return combo
 
-    def _add_custom_check(self, parent, text, var, command):
-        """ 绘制现代化大尺寸的自定义高亮勾选框 """
-        f = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
-        f.pack(anchor=tk.W, pady=(0, Config.LAYOUT['section_pady']))
-        sz = Config.LAYOUT['check_size']
-        canvas = tk.Canvas(f, width=sz+4, height=sz+4, bg=Config.LAYOUT['export_ctrl_bg'], highlightthickness=0, cursor="hand2")
-        canvas.pack(side=tk.LEFT)
-        lbl = tk.Label(f, text=text, bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], cursor="hand2")
-        lbl.pack(side=tk.LEFT, padx=5)
+
+class SuccessDialog:
+    """
+    导出成功自定义精致提示框。
+    
+    退回到最纯粹的 Windows/Tkinter 系统标准界面风格以保持软件全局高度一致。
+    提供“好的”与“打开当前导出目录”两个选项。
+    支持 Windows 资源管理器直接自动选中并高亮定位该已导出文件。
+    """
+    def __init__(self, parent, out_path, export_dir):
+        self.dlg = tk.Toplevel(parent)
+        self.dlg.title("导出成功")
+        self.dlg.transient(parent)
+        self.dlg.grab_set()
         
-        def refresh():
-            canvas.delete("all")
-            color = Config.LAYOUT['check_color'] if var.get() else Config.COLORS['border_enabled']
-            canvas.create_rectangle(2, 2, sz+1, sz+1, outline=color, width=2)
-            if var.get():
-                canvas.create_line(sz*0.2, sz*0.5, sz*0.45, sz*0.8, fill=color, width=3)
-                canvas.create_line(sz*0.45, sz*0.8, sz*0.85, sz*0.25, fill=color, width=3)
-                
-        def toggle(e=None):
-            var.set(not var.get())
-            refresh()
-            if command:
-                command()
-                
-        canvas.bind("<Button-1>", toggle)
-        lbl.bind("<Button-1>", toggle)
-        refresh()
+        # 智能自适应显示尺寸计算，防止长路径折行溢出或显示不全
+        sw, sh = parent.winfo_screenwidth(), parent.winfo_screenheight()
+        
+        # 估算字数物理占用宽度，保底 420，最大 780 像素
+        char_w = 7.5
+        w = max(420, min(780, int(len(out_path) * char_w + 80)))
+        
+        # 估算折行情况并动态扩容高度，保底 160，最大 240 像素
+        estimated_lines = max(1, len(out_path) // (w // 8))
+        h = max(160, min(240, 140 + estimated_lines * 20))
+        
+        self.dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+        self.dlg.resizable(False, False)
+        
+        # 标准系统样式提示文案，将折行宽度 wraplength 与窗口实际宽度 w 动态绑定
+        tk.Label(
+            self.dlg, 
+            text=f"图表已成功导出至：\n{out_path}", 
+            font=Config.FONTS['zh_normal'],
+            pady=15,
+            justify="center",
+            wraplength=w - 40
+        ).pack()
+        
+        # 按钮栏容器
+        btn_frame = tk.Frame(self.dlg)
+        btn_frame.pack(side=tk.BOTTOM, pady=15)
+        
+        # “好的”标准系统确认按钮
+        tk.Button(
+            btn_frame,
+            text=" 好的 ",
+            font=Config.FONTS['btn_small'],
+            width=10,
+            command=self.dlg.destroy
+        ).pack(side=tk.LEFT, padx=15)
+        
+        # “打开当前导出目录”标准系统按钮
+        def open_dir():
+            self.dlg.destroy()
+            import subprocess
+            try:
+                norm_path = os.path.normpath(out_path)
+                subprocess.run(f'explorer /select,"{norm_path}"', shell=True)
+            except Exception:
+                try:
+                    os.startfile(export_dir)
+                except Exception:
+                    pass
+                    
+        tk.Button(
+            btn_frame,
+            text="打开当前导出目录",
+            font=Config.FONTS['btn_small'],
+            command=open_dir
+        ).pack(side=tk.RIGHT, padx=15)

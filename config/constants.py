@@ -143,9 +143,9 @@ class Config:
         'canvas_bg': "#1e293b",  # 画布容器的背景（暗色调）
         'toolbar_bg': "#ffffff", # 工具栏背景
         'toolbar_opacity': 0.9,  # 工具栏透明度
-        'export_dialog_w_ratio': 0.85,  # 导出对话框对物理屏幕宽度的占比
-        'export_dialog_h_ratio': 0.85,  # 导出对话框对物理屏幕高度的占比
-        'export_side_width': 420,        # 导出侧边控制栏宽度
+        'export_dialog_w_ratio': 0.88,  # 导出对话框对物理屏幕宽度的占比
+        'export_dialog_h_ratio': 0.88,  # 导出对话框对物理屏幕高度的占比
+        'export_side_width': 450,        # 导出侧边控制栏宽度
         'export_preview_bg': "#f8fafc",  # 导出预览区背景底色
         'export_ctrl_bg': "#ffffff",     # 导出参数控制区背景底色
         

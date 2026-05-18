@@ -1,47 +1,73 @@
 import os
 import ctypes
 import tkinter as tk
-from tkinter import messagebox, font as tkfont, colorchooser, ttk, filedialog
-from PIL import Image, ImageGrab, ImageTk
+from tkinter import messagebox, colorchooser, ttk
 
 # 导入自定义模块
 from core.engine import CRCEngine
 from config.constants import Config
 from view.renderer import CanvasRenderer
+from view.sidebar import SidebarPanel
 from view.export_dialog import ExportDialog
 
 class CRCVisualizerApp:
     """
     CRC Visualizer 应用程序主类。
     
-    整合 Pillow 高保真内存渲染管道，提供极具沉浸感的交互。
-    支持主/次画布 100% 物理重绘、高清多倍数无损导出，以及自适应布局。
+    采用简洁优雅的 MVP/MVC 架构控制层，将臃肿的侧边栏 UI 布局彻底外包给 view/sidebar.py，
+    统一、显式地管理全部排版及数据控制变量，提供极快、极清的高保真渲染交互体验。
     """
     def __init__(self, root):
         self.root = root
         self.root.title(Config.UI_TEXT['title'])
         
-        # 初始化核心引擎与变量
+        # 1. 初始化核心计算引擎
         self.engine = CRCEngine()
         self.renderer = None
         self.view_scale = 1.0  # 全局缩放比例
-        self.photo_img = None  # 强引用保持
+        self.photo_img = None  # 强引用保持，防止 Tkinter 图像垃圾回收
         
-        # 1. 基础环境配置
-        self._setup_window_geometry()
+        # 2. 基础数据状态与配色加载
+        self._init_variables()
         self._load_default_colors()
+        
+        # 3. 基础环境及窗口自适应配置
+        self._setup_window_geometry()
         self._setup_styles()
         
-        # 2. 构建 UI 布局
+        # 4. 构建解耦后的 GUI 界面
         self.setup_ui()
         
-        # 3. 启动初始化与智能居中
+        # 5. 启动自验证生成与首帧居中
         self.root.update_idletasks()
         self.update_ui_states()
         self.generate(auto_center=True)
         self.root.after(100, self.center_view)
 
-    # --- 基础配置方法 ---
+    # --- 状态与变量初始化 ---
+
+    def _init_variables(self):
+        """ 统一、显式声明所有控制和排版布局相关的 Tkinter 状态变量 """
+        dv = Config.DEFAULT_VALUES
+        self.data_var = tk.StringVar(value=dv['data'])
+        self.divisor_var = tk.StringVar(value=dv['divisor'])
+        self.show_gray_var = tk.BooleanVar(value=dv['show_gray'])
+        
+        # 物理排版参数微调变量
+        self.font_size_var = tk.IntVar(value=dv['font_size'])
+        self.spacing_var = tk.DoubleVar(value=dv['h_spacing'])
+        self.v_spacing_var = tk.DoubleVar(value=dv['v_spacing'])
+        self.line_width_var = tk.IntVar(value=dv['line_width'])
+        self.padding_var = tk.IntVar(value=dv['padding'])
+        self.line_ext_left_var = tk.DoubleVar(value=dv['ext_left'])
+        self.line_ext_right_var = tk.DoubleVar(value=dv['ext_right'])
+        self.curve_span_left_var = tk.DoubleVar(value=dv['span_left'])
+        self.curve_span_right_var = tk.DoubleVar(value=dv['span_right'])
+
+    def _load_default_colors(self):
+        """ 从配置中心加载默认颜色属性 """
+        for attr, color in Config.DEFAULT_COLORS.items():
+            setattr(self, attr, color)
 
     def _setup_window_geometry(self):
         """ 配置窗口初始大小及位置（智能居中，并默认最大化启动） """
@@ -58,10 +84,6 @@ class CRCVisualizerApp:
         except Exception:
             pass
 
-    def _load_default_colors(self):
-        for attr, color in Config.DEFAULT_COLORS.items():
-            setattr(self, attr, color)
-
     def _setup_styles(self):
         self.style = ttk.Style()
         self.style.configure('TCombobox', padding=Config.LAYOUT['entry_ipady'])
@@ -70,130 +92,20 @@ class CRCVisualizerApp:
     # --- UI 构建逻辑 ---
 
     def setup_ui(self):
-        """ 构建整体 UI 框架：左侧控制面板 + 右侧画布区域 """
-        self._setup_sidebar_base()
-        
-        panel = self.scrollable_frame
-        panel.inner_panel = tk.Frame(panel, bg=Config.COLORS['sidebar_bg'], 
-                                     padx=Config.LAYOUT['input_padx'], 
-                                     pady=Config.LAYOUT['input_pady'])
-        panel.inner_panel.pack(fill=tk.BOTH, expand=True)
-        
-        self._init_input_section(panel.inner_panel)
-        self._init_style_section(panel.inner_panel)
-        self._init_color_section(panel.inner_panel)
-        
-        # 右侧核心画布区域
-        self._setup_canvas_area()
-
-    def _setup_sidebar_base(self):
-        """ 构建带滚动条的响应式侧边栏 """
+        """ 构建整体 UI 框架：左侧解耦参数面板 + 右侧核心画布区域 """
         win_w = self.root.winfo_width()
-        if win_w <= 1: win_w = min(1600, int(self.root.winfo_screenwidth() * 0.9))
+        if win_w <= 1:
+            win_w = min(1600, int(self.root.winfo_screenwidth() * 0.9))
         side_w = max(Config.LAYOUT['min_side_width'], int(win_w * Config.LAYOUT['side_ratio']))
         
-        self.side_container = tk.Frame(self.root, bg=Config.COLORS['sidebar_bg'], width=side_w)
-        self.side_container.pack(side=tk.LEFT, fill=tk.Y)
-        self.side_container.pack_propagate(False)
-
-        self.side_canvas = tk.Canvas(self.side_container, bg=Config.COLORS['sidebar_bg'], highlightthickness=0)
-        self.side_scrollbar = tk.Scrollbar(self.side_container, orient="vertical", command=self.side_canvas.yview)
-        self.scrollable_frame = tk.Frame(self.side_canvas, bg=Config.COLORS['sidebar_bg'], width=side_w-Config.LAYOUT['side_scroll_offset'])
+        # 1. 挂载解耦的控制侧边栏视图
+        self.sidebar = SidebarPanel(self.root, self, side_w)
         
-        self.side_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=side_w-Config.LAYOUT['side_scroll_offset'])
-        
-        tk.Label(self.scrollable_frame, text=Config.UI_TEXT['sidebar_title'], bg=Config.COLORS['sidebar_bg'], 
-                 fg=Config.COLORS['sidebar_title_fg'], font=Config.FONTS['side_title']).pack(pady=(20, 10))
-        tk.Frame(self.scrollable_frame, height=2, bg=Config.COLORS['primary'], width=Config.LAYOUT['side_divider_width']).pack(pady=(0, 20))
-        
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.side_canvas.configure(scrollregion=self.side_canvas.bbox("all"))
-        )
-        
-        self.side_canvas.configure(yscrollcommand=self.side_scrollbar.set)
-        self.side_scrollbar.pack(side="right", fill="y")
-        self.side_canvas.pack(side="left", fill="both", expand=True)
-
-        def _bind_mousewheel(event):
-            self.side_canvas.bind_all("<MouseWheel>", lambda e: self.side_canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
-        def _unbind_mousewheel(event):
-            self.side_canvas.unbind_all("<MouseWheel>")
-            
-        self.side_container.bind("<Enter>", _bind_mousewheel)
-        self.side_container.bind("<Leave>", _unbind_mousewheel)
-
-    def _init_input_section(self, parent):
-        """ 初始化输入区域 """
-        tk.Label(parent, text=Config.UI_TEXT['data_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(5, 5))
-        self.data_var = tk.StringVar(value=Config.DEFAULT_VALUES['data'])
-        self.data_entry = tk.Entry(parent, textvariable=self.data_var, font=Config.FONTS['en_main'])
-        self.data_entry.pack(fill=tk.X, pady=(0, Config.LAYOUT['entry_pady']), ipady=Config.LAYOUT['entry_ipady'])
-        self.data_entry.bind("<Return>", lambda e: self.generate(auto_center=True))
-
-        tk.Label(parent, text=Config.UI_TEXT['poly_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(5, 5))
-        pf = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
-        pf.pack(fill=tk.X, pady=(0, 5))
-        self.divisor_var = tk.StringVar(value=Config.DEFAULT_VALUES['divisor'])
-        self.poly_entry = tk.Entry(pf, textvariable=self.divisor_var, font=Config.FONTS['en_main'])
-        self.poly_entry.pack(side=tk.LEFT, expand=True, fill=tk.X, ipady=Config.LAYOUT['entry_ipady'])
-        self.poly_entry.bind("<Return>", lambda e: self.generate(auto_center=True))
-        
-        self.poly_combo = ttk.Combobox(parent, values=list(Config.STD_POLYS.keys()), state="readonly", font=Config.FONTS['btn_small'])
-        self.poly_combo.set(list(Config.STD_POLYS.keys())[0])
-        self.poly_combo.pack(fill=tk.X, pady=(0, Config.LAYOUT['entry_pady']))
-        self.poly_combo.bind("<<ComboboxSelected>>", self.on_poly_selected)
-
-        # 补零标记开关
-        self.show_gray_var = tk.BooleanVar(value=Config.DEFAULT_VALUES['show_gray'])
-        self._add_custom_check(parent, Config.UI_TEXT['gray_toggle'], self.show_gray_var, self.on_toggle_gray)
-        
-        tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
-
-    def _init_style_section(self, parent):
-        """ 初始化排版布局参数区 """
-        tk.Label(parent, text=Config.UI_TEXT['style_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
-        dv = Config.DEFAULT_VALUES
-        styles = [
-            (Config.UI_TEXT['font_size'], 10, 80, "font_size_var", dv['font_size'], 1),
-            (Config.UI_TEXT['h_spacing'], 0.5, 3.0, "spacing_var", dv['h_spacing'], 0.1),
-            (Config.UI_TEXT['v_spacing'], 0.5, 3.0, "v_spacing_var", dv['v_spacing'], 0.1),
-            (Config.UI_TEXT['line_width'], 1, 10, "line_width_var", dv['line_width'], 1),
-            (Config.UI_TEXT['padding'], 0, 200, "padding_var", dv['padding'], 1),
-            (Config.UI_TEXT['ext_left'], -5.0, 0.0, "line_ext_left_var", dv['ext_left'], 0.1),
-            (Config.UI_TEXT['ext_right'], 0.0, 5.0, "line_ext_right_var", dv['ext_right'], 0.1),
-            (Config.UI_TEXT['span_left'], -2.0, -0.1, "curve_span_left_var", dv['span_left'], 0.1),
-            (Config.UI_TEXT['span_right'], -1.5, 1.5, "curve_span_right_var", dv['span_right'], 0.1)
-        ]
-        for label, f, t, var, d, r in styles:
-            self._add_scale(parent, label, f, t, var, d, res=r)
-        
-        tk.Button(parent, text=Config.UI_TEXT['btn_reset_params'], command=self.reset_params, 
-                  font=Config.FONTS['btn_small'], bg=Config.COLORS['btn_default_bg'], pady=Config.LAYOUT['btn_ipady']).pack(fill=tk.X, pady=(5, Config.LAYOUT['section_pady']))
-
-    def _init_color_section(self, parent):
-        """ 初始化颜色选择区，并在底部加入高贵大气的“导出图表”按钮 """
-        tk.Label(parent, text=Config.UI_TEXT['color_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
-        
-        # 逐行构建精美颜色配置项，左侧为中文标签，右侧为可点击色块
-        self._add_color_row(parent, Config.UI_TEXT['label_bg_block_color'], 'bg_block_color')
-        self._add_color_row(parent, Config.UI_TEXT['label_bg_digit_color'], 'bg_digit_color')
-        self._add_color_row(parent, Config.UI_TEXT['label_digit_color'], 'digit_color')
-        self._add_color_row(parent, Config.UI_TEXT['label_line_color'], 'line_color')
-        self._add_color_row(parent, Config.UI_TEXT['label_sheet_bg_color'], 'sheet_bg_color')
-        self._add_color_row(parent, Config.UI_TEXT['label_canvas_bg_color'], 'canvas_bg_color')
-        
-        tk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.reset_colors, 
-                  font=Config.FONTS['btn_small'], bg=Config.COLORS['btn_default_bg'], pady=Config.LAYOUT['btn_ipady']).pack(fill=tk.X, pady=(15, 20))
-                  
-        # 尊贵大气的深蓝色“导出图表”大按钮
-        tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
-        tk.Button(parent, text=Config.UI_TEXT['btn_export'], command=self.open_export_dialog, 
-                  font=Config.FONTS['btn_large_bold'], fg="white", bg=Config.COLORS['primary'], activebackground=Config.COLORS['primary_active'],
-                  activeforeground="white", pady=10).pack(fill=tk.X, pady=(15, 30))
+        # 2. 构建右侧核心画布展示区
+        self._setup_canvas_area()
 
     def _setup_canvas_area(self):
-        """ 构建右侧核心绘图区域 """
+        """ 构建右侧核心展示画布区域 """
         cont = tk.Frame(self.root, bg=Config.LAYOUT['canvas_bg'], bd=2)
         cont.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10), pady=10)
         
@@ -202,12 +114,14 @@ class CRCVisualizerApp:
         
         self._setup_canvas_toolbar(cont)
         
+        # 绑定物理平移及滚轮缩放事件
         self.renderer = CanvasRenderer(self.canvas)
         self.canvas.bind("<ButtonPress-1>", self.start_pan)
         self.canvas.bind("<B1-Motion>", self.do_pan)
         self.canvas.bind("<MouseWheel>", self.on_mousewheel)
 
     def _setup_canvas_toolbar(self, parent):
+        """ 构建悬浮于画布上方的现代化浮动控制工具栏 """
         tb = tk.Frame(parent, bg=Config.COLORS['toolbar_bg'], bd=1, relief=tk.RAISED, padx=10, pady=5)
         tb.place(relx=0.5, y=30, anchor="n")
         
@@ -226,11 +140,10 @@ class CRCVisualizerApp:
         tk.Button(tb, text=Config.UI_TEXT['btn_reset_view'], command=self.reset_view, 
                   font=Config.FONTS['btn_small'], bg=Config.COLORS['toolbar_bg'], relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
 
-    # --- 核心业务与渲染逻辑 ---
+    # --- 核心渲染驱动与防抖管道 ---
 
     def generate(self, auto_center=False, force_rebuild=True):
-        """ 核心生成入口：采用双通道缓存加速，15ms 智能防抖合并滑块拖拽，视角放缩 0 延迟极速响应 """
-        # 如果仅仅是视角的放大或缩小，直接调用极速位图插值 resize 并在 1ms 内展示，完全绕过防抖，实现 0 延迟顺滑响应！
+        """ 核心生成入口：采用双通道缓存加速，15ms 智能防抖合并滑块拖拽 """
         if not force_rebuild:
             self._actual_generate(auto_center, force_rebuild=False)
             return
@@ -248,11 +161,10 @@ class CRCVisualizerApp:
             finally:
                 self._render_pending = False
                 
-        # 拖动滑块时调用，延迟 15 毫秒合并高频请求，保障拖拽无粘滞
         self.root.after(15, run_generation)
 
     def _actual_generate(self, auto_center=False, force_rebuild=True):
-        """ 实际的渲染物理管线：利用基准大图缓存，将缩放视角与排版重绘深度解耦，响应速度提升百倍！ """
+        """ 实际的渲染物理管线：利用基准大图缓存，将缩放视角与排版重绘深度解耦 """
         data = self.data_var.get().strip()
         divisor = self.divisor_var.get().strip()
         
@@ -269,34 +181,35 @@ class CRCVisualizerApp:
             messagebox.showwarning(Config.MESSAGES['warning_title_algo'], Config.MESSAGES['warning_poly_len_min_2'])
             return
 
-        # 1. 仅在参数/数据实际变化，或缓存未初始化时，才重新进行昂贵的 SSAA 内存排版绘制
+        # 1. 仅在参数数据实际变化，或缓存未初始化时，才重新进行 SSAA 内存排版绘制
         if force_rebuild or not getattr(self, 'base_image', None):
             q, rows, dividend = self.engine.calculate(data, divisor)
             ctx = self._get_render_context()
-            # 基础缓存大图的渲染比例强制恒等于 1.0 物理原比例
-            ctx['view_scale'] = 1.0
+            ctx['view_scale'] = 1.0  # 基础缓存图的渲染物理原尺寸固定为 1.0
             self.base_image = self.renderer.render(data, dividend, divisor, q, rows, ctx)
 
         # 2. 从极其轻量级的内存缓存中直接根据当前 view_scale 极速缩放视角
         vs = getattr(self, 'view_scale', 1.0)
+        from PIL import Image, ImageTk # 延迟导入，减少主线程加载负担
         if abs(vs - 1.0) > 1e-4:
             tw = max(1, int(self.base_image.width * vs))
             th = max(1, int(self.base_image.height * vs))
-            # 极其高效的 C 语言位图插值缩放，耗时低于 1 毫秒！
             img = self.base_image.resize((tw, th), Image.Resampling.BILINEAR)
         else:
             img = self.base_image
         
-        # 3. 转为 ImageTk 并贴在 Canvas 中央 (0, 0)
+        # 3. 贴在 Canvas 中央并更新视口范围
         self.photo_img = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
         self.canvas.config(bg=self.canvas_bg_color)
         self.canvas.create_image(0, 0, image=self.photo_img, anchor="center")
         self.canvas.config(scrollregion=(-3000, -3000, 3000, 3000))
         
-        if auto_center: self.center_view()
+        if auto_center:
+            self.center_view()
 
     def _get_render_context(self):
+        """ 收集并返回当前配置变量的精细渲染上下文字典 """
         ctx = {
             'view_scale': getattr(self, 'view_scale', 1.0),
             'font_size': self.font_size_var.get(),
@@ -306,7 +219,7 @@ class CRCVisualizerApp:
             'line_width': self.line_width_var.get(),
             'padding': self.padding_var.get(),
             'show_gray': self.show_gray_var.get(),
-            'show_border': True,  # 主界面始终显示精美边框
+            'show_border': True,
             'ext_left': self.line_ext_left_var.get(),
             'ext_right': self.line_ext_right_var.get(),
             'curve_span_left': self.curve_span_left_var.get(),
@@ -315,7 +228,7 @@ class CRCVisualizerApp:
         }
         return ctx
 
-    # --- 交互控制方法 ---
+    # --- 交互事件处理 ---
 
     def _adjust_zoom(self, factor):
         new_scale = self.view_scale * factor
@@ -341,24 +254,27 @@ class CRCVisualizerApp:
         self.canvas.yview_moveto(((bbox[1]+bbox[3])/2 - ch/2 + 3000) / 6000)
 
     def reset_view(self):
-        """ 重置缩放比例与居中视角 """
         self.view_scale = 1.0
         self.update_zoom_display()
         self.generate(True, force_rebuild=False)
 
-    def start_pan(self, event): self.canvas.scan_mark(event.x, event.y)
-    def do_pan(self, event): self.canvas.scan_dragto(event.x, event.y, gain=1)
+    def start_pan(self, event):
+        self.canvas.scan_mark(event.x, event.y)
+
+    def do_pan(self, event):
+        self.canvas.scan_dragto(event.x, event.y, gain=1)
 
     def pick_color(self, attr):
+        """ 唤起系统色彩盘挑选色值，并同步更新侧边栏预览色块与物理 Canvas 重绘 """
         color = colorchooser.askcolor(initialcolor=getattr(self, attr))[1]
         if color:
             setattr(self, attr, color)
-            self.update_color_swatches()
+            self.sidebar.update_swatches()
             self.generate()
 
     def reset_colors(self):
         self._load_default_colors()
-        self.update_color_swatches()
+        self.sidebar.update_swatches()
         self.generate()
 
     def reset_params(self):
@@ -373,115 +289,26 @@ class CRCVisualizerApp:
         self.generate()
 
     def on_poly_selected(self, event):
-        poly = Config.STD_POLYS.get(self.poly_combo.get())
-        if poly: self.divisor_var.set(poly); self.generate(True)
+        poly = Config.STD_POLYS.get(self.sidebar.poly_combo.get())
+        if poly:
+            self.divisor_var.set(poly)
+            self.generate(True)
 
     def on_toggle_gray(self):
-        self.update_ui_states(); self.generate(False)
+        self.update_ui_states()
+        self.generate(False)
 
     def update_ui_states(self):
         is_gray_enabled = self.show_gray_var.get()
-        
-        # 针对 "背景块" 和 "块内字" 颜色行的控件状态刷新
-        for attr in ['bg_block_color', 'bg_digit_color']:
-            if hasattr(self, 'color_swatches') and attr in self.color_swatches:
-                canvas = self.color_swatches[attr]
-                lbl = self.color_labels[attr]
-                if is_gray_enabled:
-                    canvas.config(cursor="hand2", highlightbackground=Config.COLORS['border_enabled'])
-                    lbl.config(fg=Config.COLORS['fg_enabled'])
-                else:
-                    canvas.config(cursor="", highlightbackground=Config.COLORS['border_disabled'])
-                    lbl.config(fg=Config.COLORS['fg_disabled'])
-
-    # --- 弹出式导出与实时高保真重绘预览 ---
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_states(is_gray_enabled)
 
     def open_export_dialog(self):
-        """ 打开导出对话框以进行高保真多倍率大图和矢量图保存 """
+        """ 唤起高保真导出配置对话框 """
         ExportDialog(self)
 
-    # --- UI 辅助绘图组件 ---
-
-    def _add_custom_check(self, parent, text, var, command):
-        """ 绘制一个现代化、大尺寸的自定义复选框 """
-        f = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
-        f.pack(anchor=tk.W, pady=(0, Config.LAYOUT['section_pady']))
-        sz = Config.LAYOUT['check_size']
-        canvas = tk.Canvas(f, width=sz+4, height=sz+4, bg=Config.COLORS['sidebar_bg'], highlightthickness=0, cursor="hand2")
-        canvas.pack(side=tk.LEFT)
-        lbl = tk.Label(f, text=text, bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_normal'], cursor="hand2")
-        lbl.pack(side=tk.LEFT, padx=5)
-        
-        def refresh():
-            canvas.delete("all")
-            color = Config.LAYOUT['check_color'] if var.get() else Config.COLORS['border_enabled']
-            canvas.create_rectangle(2, 2, sz+1, sz+1, outline=color, width=2)
-            if var.get():
-                canvas.create_line(sz*0.2, sz*0.5, sz*0.45, sz*0.8, fill=color, width=3)
-                canvas.create_line(sz*0.45, sz*0.8, sz*0.85, sz*0.25, fill=color, width=3)
-        def toggle(e=None):
-            var.set(not var.get())
-            refresh()
-            if command: command()
-        canvas.bind("<Button-1>", toggle)
-        lbl.bind("<Button-1>", toggle)
-        refresh()
-
-    def _add_scale(self, parent, label, f, t, var_name, default, res=1):
-        """ 通用滑块组件封装 """
-        tk.Label(parent, text=label, bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_normal']).pack(anchor=tk.W, pady=(5, 0))
-        var = tk.DoubleVar(value=default) if isinstance(res, float) else tk.IntVar(value=default)
-        setattr(self, var_name, var)
-        tk.Scale(parent, from_=f, to_=t, resolution=res, orient=tk.HORIZONTAL, variable=var, 
-                 sliderlength=Config.LAYOUT['slider_len'], width=Config.LAYOUT['slider_thick'],
-                 font=("Times New Roman", 10), bg=Config.COLORS['sidebar_bg'], highlightthickness=0, 
-                 command=lambda x: self.generate(auto_center=False)).pack(fill=tk.X, pady=(0, 10))
-
-    def _add_color_row(self, parent, text, attr):
-        """ 新增现代化高品质色彩配置行：左侧显示名称，右侧显示精美物理色彩框，支持实时点击重置色值 """
-        row_frame = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
-        row_frame.pack(fill=tk.X, pady=6)
-        
-        lbl = tk.Label(row_frame, text=text, bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_normal'])
-        lbl.pack(side=tk.LEFT)
-        
-        sz = Config.LAYOUT['check_size']
-        canvas = tk.Canvas(
-            row_frame, 
-            width=sz * 2.5, 
-            height=sz, 
-            bg=getattr(self, attr), 
-            highlightthickness=1, 
-            highlightbackground=Config.COLORS['border_enabled'],
-            cursor="hand2"
-        )
-        canvas.pack(side=tk.RIGHT)
-        
-        def on_click(e):
-            if canvas.cget("cursor") == "hand2":
-                self.pick_color(attr)
-                
-        canvas.bind("<Button-1>", on_click)
-        
-        # 缓存引用
-        if not hasattr(self, 'color_swatches'):
-            self.color_swatches = {}
-        if not hasattr(self, 'color_labels'):
-            self.color_labels = {}
-            
-        self.color_swatches[attr] = canvas
-        self.color_labels[attr] = lbl
-        
-        return row_frame
-
-    def update_color_swatches(self):
-        """ 刷新所有颜色块的物理背景，响应重置或挑选更新 """
-        if hasattr(self, 'color_swatches'):
-            for attr, canvas in self.color_swatches.items():
-                canvas.config(bg=getattr(self, attr))
-
 if __name__ == "__main__":
-    # 提升高DPI清晰度（针对 Windows 系统）
+    # Windows 系统高 DPI 物理缩放拉伸清晰度补强
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
