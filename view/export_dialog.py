@@ -7,6 +7,13 @@ from config.constants import Config
 from view.widgets import ModernCheckbutton
 from view.svg_renderer import SVGRenderer
 
+try:
+    from svglib.svglib import svg2rlg
+    from reportlab.graphics import renderPDF
+    HAS_PDF_DEPENDENCY = True
+except ImportError:
+    HAS_PDF_DEPENDENCY = False
+
 class ExportDialog:
     """
     导出图表弹出对话框类。
@@ -194,13 +201,13 @@ class ExportDialog:
         self.dir_mode_var.trace_add("write", on_dir_mode_changed)
 
         def on_format_changed(*_):
-            is_svg = (self.fmt_var.get() == "svg")
-            state = "disabled" if is_svg else "readonly"
+            is_vector = (self.fmt_var.get() in ("svg", "pdf"))
+            state = "disabled" if is_vector else "readonly"
             self.quality_combo.config(state=state)
             self.dpi_combo.config(state=state)
             
-            if is_svg:
-                # SVG 模式下仅提供 "彩色" 和 "灰度"，隐藏 "黑白" 选项
+            if is_vector:
+                # 矢量模式下仅提供 "彩色" 和 "灰度"，隐藏 "黑白" 选项
                 self.color_combo.config(values=Config.EXPORT_OPTIONS['colors'][:2])
                 if self.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
                     self.color_var.set(Config.EXPORT_OPTIONS['colors'][0])
@@ -269,19 +276,40 @@ class ExportDialog:
             opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
         }.get(self.quality_var.get(), 1)
         
-        if fmt == "svg":
+        if fmt in ("svg", "pdf"):
             w_real = img.width
             h_real = img.height
             
-            # 调用全新的 SVGRenderer 进行内存转换，高内聚低耦合
-            svg_ctx = ctx.copy()
-            svg_ctx['color_mode'] = self.color_var.get()
-            svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, svg_ctx)
-            size_kb = len(svg_content.encode("utf-8")) / 1024.0
+            if fmt == "svg":
+                # 调用全新的 SVGRenderer 进行内存转换，高内聚低耦合
+                svg_ctx = ctx.copy()
+                svg_ctx['color_mode'] = self.color_var.get()
+                svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, svg_ctx)
+                size_kb = len(svg_content.encode("utf-8")) / 1024.0
+                size_text = f"{size_kb:.2f} KB"
+            else: # pdf
+                if HAS_PDF_DEPENDENCY:
+                    try:
+                        pdf_ctx = ctx.copy()
+                        pdf_ctx['color_mode'] = self.color_var.get()
+                        pdf_ctx['show_border'] = self.border_var.get()
+                        svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, pdf_ctx)
+                        
+                        svg_io = io.BytesIO(svg_content.encode("utf-8"))
+                        drawing = svg2rlg(svg_io)
+                        
+                        pdf_bio = io.BytesIO()
+                        renderPDF.drawToFile(drawing, pdf_bio)
+                        size_kb = len(pdf_bio.getvalue()) / 1024.0
+                        size_text = f"{size_kb:.2f} KB"
+                    except Exception:
+                        size_text = "估算失败"
+                else:
+                    size_text = "PDF依赖未就绪"
             
             self.width_lbl.config(text=f"导出宽度: {w_real} 像素 (矢量)")
             self.height_lbl.config(text=f"导出高度: {h_real} 像素 (矢量)")
-            self.size_lbl.config(text=f"预估大小: {size_kb:.2f} KB")
+            self.size_lbl.config(text=f"预估大小: {size_text}")
         else:
             w_real = img.width * multiplier
             h_real = img.height * multiplier
@@ -377,6 +405,8 @@ class ExportDialog:
 
             if fmt == "svg":
                 self._save_svg(out_path)
+            elif fmt == "pdf":
+                self._save_pdf(out_path)
             else:
                 self._save_bitmap(out_path, multiplier)
 
@@ -400,6 +430,30 @@ class ExportDialog:
         svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, ctx)
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
+
+    def _save_pdf(self, out_path):
+        """ 保存为 PDF 矢量格式 """
+        if not HAS_PDF_DEPENDENCY:
+            raise ImportError("未检测到 PDF 矢量导出依赖！请先在命令行运行 pip install svglib reportlab 导入支持。")
+            
+        data = self.app.data_var.get().strip()
+        divisor = self.app.divisor_var.get().strip()
+        q, rows, dividend = self.app.engine.calculate(data, divisor)
+        
+        ctx = self.app._get_render_context()
+        ctx['view_scale'] = 1.0
+        ctx['show_border'] = self.border_var.get()
+        ctx['color_mode'] = self.color_var.get()
+        
+        # 1. 内存中编译出标准的无损 SVG 矢量 XML 字符串
+        svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, ctx)
+        
+        # 2. 将 SVG 字符串封装为内存 BytesIO 流，交付 svglib 解析为 ReportLab 绘制树
+        svg_io = io.BytesIO(svg_content.encode("utf-8"))
+        drawing = svg2rlg(svg_io)
+        
+        # 3. 通过 ReportLab 顶级图形绘制模块无损转译为标准的 PDF 文件并写入磁盘
+        renderPDF.drawToFile(drawing, out_path)
 
     def _save_bitmap(self, out_path, multiplier):
         """ 在内存中以指定 high-DPI 物理重绘并写入位图文件 """

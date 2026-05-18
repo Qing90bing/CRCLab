@@ -215,7 +215,7 @@ class Config:
 
     # 导出下拉菜单的可选参数元数据集合
     EXPORT_OPTIONS = {
-        'formats': ["png", "jpg", "svg"],
+        'formats': ["png", "jpg", "svg", "pdf"],
         'qualities': [
             "标清默认尺寸", "标清默认尺寸1倍", "标清默认尺寸2倍",
             "标清默认尺寸3倍", "高清默认尺寸1倍", "高清默认尺寸2倍"

@@ -122,16 +122,20 @@ class SVGRenderer:
             }
             return color_map.get(c_str.lower(), (0, 0, 0, 255))
 
-        # Helper: 转换并应用灰度/黑白滤镜，输出兼容的 SVG 色彩串
+        # Helper: 转换并应用灰度/黑白滤镜，输出兼容的 (hex_color, opacity_val)
         color_mode = ctx.get('color_mode', Config.EXPORT_OPTIONS['colors'][0])
         
-        def to_svg_color(color_in):
+        def to_svg_color_and_opacity(color_in):
+            """
+            解析并应用色彩滤镜，将颜色统一解耦输出为 (hex_color, opacity_val) 元组。
+            这在任何版本的 WPS/Office 中均能 100% 正确渲染，避开 rgba() 解析缺陷带来的纯黑块渲染。
+            """
             if color_in is None or color_in == "none":
-                return "none"
+                return "none", 1.0
                 
             r, g, b, a = parse_color(color_in)
             if a == 0:
-                return "none"
+                return "none", 0.0
                 
             if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
                 y = int(0.299 * r + 0.587 * g + 0.114 * b)
@@ -141,10 +145,9 @@ class SVGRenderer:
                 val = 255 if y >= 127 else 0
                 r, g, b = val, val, val
                 
-            if a == 255:
-                return f"rgb({r},{g},{b})"
-            else:
-                return f"rgba({r},{g},{b},{a/255:.3f})"
+            hex_color = f"#{r:02x}{g:02x}{b:02x}"
+            opacity = a / 255.0
+            return hex_color, opacity
             
         # 5. 遍历拦截的绘制命令并转换为 SVG XML 元素
         svg_elements = []
@@ -154,27 +157,34 @@ class SVGRenderer:
             if t == 'text':
                 cx, cy = cmd['xy']
                 tx = (cx - x0) / ssaa_factor + p
-                ty = (cy - y0) / ssaa_factor + p
+                
                 text_val = cmd['text']
                 font = cmd['font']
-                fill = to_svg_color(cmd['fill'])
+                fill_color, fill_op = to_svg_color_and_opacity(cmd['fill'])
                 
-                # 获取字体尺寸
+                # 获取字体尺寸并微调真实坐标
                 font_sz = getattr(font, 'size', ctx_ssaa['font_size'] * ctx_ssaa['view_scale'])
                 font_sz_real = font_sz / ssaa_factor
+                
+                # 基线偏移补偿：移除 dominant-baseline="central"，通过 y' = y + 0.33 * FontSize 实现跨平台完美垂直居中
+                ty = (cy - y0) / ssaa_factor + p + 0.33 * font_sz_real
                 
                 # 特殊字符转义，保证 XML 合规
                 escaped_text = text_val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                 
+                fill_attrs = f'fill="{fill_color}"'
+                if fill_op < 1.0 and fill_color != "none":
+                    fill_attrs += f' fill-opacity="{fill_op:.3f}"'
+                
                 svg_elements.append(
                     f'  <text x="{tx:.2f}" y="{ty:.2f}" '
                     f'font-family="Times New Roman, Times, serif" font-size="{font_sz_real:.2f}" '
-                    f'fill="{fill}" text-anchor="middle" dominant-baseline="central">{escaped_text}</text>'
+                    f'{fill_attrs} text-anchor="middle">{escaped_text}</text>'
                 )
                 
             elif t == 'line':
                 xy = cmd['xy']
-                fill = to_svg_color(cmd['fill'])
+                stroke_color, stroke_op = to_svg_color_and_opacity(cmd['fill'])
                 width = cmd['width'] / ssaa_factor
                 
                 # 转换所有坐标点
@@ -189,16 +199,20 @@ class SVGRenderer:
                                 px, py = xy[idx], xy[idx+1]
                                 pts_transformed.append(((px - x0) / ssaa_factor + p, (py - y0) / ssaa_factor + p))
                 
+                stroke_attrs = f'stroke="{stroke_color}"'
+                if stroke_op < 1.0 and stroke_color != "none":
+                    stroke_attrs += f' stroke-opacity="{stroke_op:.3f}"'
+                
                 if len(pts_transformed) == 2:
                     p1, p2 = pts_transformed
                     svg_elements.append(
                         f'  <line x1="{p1[0]:.2f}" y1="{p1[1]:.2f}" x2="{p2[0]:.2f}" y2="{p2[1]:.2f}" '
-                        f'stroke="{fill}" stroke-width="{width:.2f}" stroke-linecap="round" stroke-linejoin="round" />'
+                        f'{stroke_attrs} stroke-width="{width:.2f}" stroke-linecap="round" stroke-linejoin="round" />'
                     )
                 elif len(pts_transformed) > 2:
                     path_d = "M " + " L ".join(f"{pt[0]:.2f} {pt[1]:.2f}" for pt in pts_transformed)
                     svg_elements.append(
-                        f'  <path d="{path_d}" fill="none" stroke="{fill}" stroke-width="{width:.2f}" '
+                        f'  <path d="{path_d}" fill="none" {stroke_attrs} stroke-width="{width:.2f}" '
                         f'stroke-linecap="round" stroke-linejoin="round" />'
                     )
                     
@@ -210,33 +224,48 @@ class SVGRenderer:
                 nbx1 = (bx1 - x0) / ssaa_factor + p
                 nby1 = (by1 - y0) / ssaa_factor + p
                 
-                fill = to_svg_color(cmd['fill'])
-                outline = to_svg_color(cmd['outline'])
+                fill_color, fill_op = to_svg_color_and_opacity(cmd['fill'])
+                outline_color, stroke_op = to_svg_color_and_opacity(cmd['outline'])
                 width = cmd['width'] / ssaa_factor
                 
                 rect_w = nbx1 - nbx0
                 rect_h = nby1 - nby0
                 
+                fill_attrs = f'fill="{fill_color}"'
+                if fill_op < 1.0 and fill_color != "none":
+                    fill_attrs += f' fill-opacity="{fill_op:.3f}"'
+                
+                stroke_attrs = f'stroke="{outline_color}"'
+                if stroke_op < 1.0 and outline_color != "none":
+                    stroke_attrs += f' stroke-opacity="{stroke_op:.3f}"'
+                
                 svg_elements.append(
                     f'  <rect x="{nbx0:.2f}" y="{nby0:.2f}" width="{rect_w:.2f}" height="{rect_h:.2f}" '
-                    f'fill="{fill}" stroke="{outline}" stroke-width="{width:.2f}" />'
+                    f'{fill_attrs} {stroke_attrs} stroke-width="{width:.2f}" />'
                 )
 
         # 6. 处理精美外边框线
         if ctx.get('show_border', True):
             border_w = max(1.0, 2.0 * ctx['view_scale'])
-            border_color = to_svg_color("#000000")
+            border_color, border_op = to_svg_color_and_opacity("#000000")
+            border_attrs = f'stroke="{border_color}"'
+            if border_op < 1.0 and border_color != "none":
+                border_attrs += f' stroke-opacity="{border_op:.3f}"'
             svg_elements.append(
                 f'  <rect x="0" y="0" width="{w_sheet}" height="{h_sheet}" '
-                f'fill="none" stroke="{border_color}" stroke-width="{border_w:.2f}" />'
+                f'fill="none" {border_attrs} stroke-width="{border_w:.2f}" />'
             )
 
         # 7. 组装完整 SVG 内容
-        sheet_bg = to_svg_color(ctx['sheet_bg_color'])
+        sheet_bg_color, sheet_bg_op = to_svg_color_and_opacity(ctx['sheet_bg_color'])
+        sheet_bg_attrs = f'fill="{sheet_bg_color}"'
+        if sheet_bg_op < 1.0 and sheet_bg_color != "none":
+            sheet_bg_attrs += f' fill-opacity="{sheet_bg_op:.3f}"'
+            
         svg_header = (
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{w_sheet}" height="{h_sheet}" '
             f'viewBox="0 0 {w_sheet} {h_sheet}">\n'
-            f'  <rect width="100%" height="100%" fill="{sheet_bg}" />\n'
+            f'  <rect width="100%" height="100%" {sheet_bg_attrs} />\n'
         )
         svg_footer = "\n</svg>"
         
