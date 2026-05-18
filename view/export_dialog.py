@@ -2,7 +2,7 @@ import os
 import io
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 from config.constants import Config
 from view.widgets import ModernCheckbutton
 from view.svg_renderer import SVGRenderer
@@ -14,13 +14,17 @@ try:
 except ImportError:
     HAS_PDF_DEPENDENCY = False
 
+try:
+    import ctypes
+    from view.emf_renderer import EMFInterceptDraw, HAS_EMF_DEPENDENCY
+except ImportError:
+    HAS_EMF_DEPENDENCY = False
+
 class ExportDialog:
     """
     导出图表弹出对话框类。
     
-    采用高内聚设计，将原本混杂在 main.py 中的导出 UI 构建、
-    实时高保真预览重绘、以及多倍率物理图像输出逻辑完全抽离，实现 SRP 单一职责原则。
-    使用 view/widgets.py 通用组件以消减大量重复的 Canvas 复选框几何重绘。
+    管理导出界面的布局、参数配置、导出文件预览及不同文件格式（PNG、JPG、SVG、PDF、EMF）的导出逻辑。
     """
     def __init__(self, app):
         """
@@ -37,12 +41,12 @@ class ExportDialog:
         self._build_layout()
         self._setup_bindings()
         
-        # 首次同步与双通道防闪烁定位延迟居中，确保初始化呈现正常
+        # 首次同步与延迟定位居中，确保初始化呈现正常
         self._update_preview()
         self.dlg.after(100, self._update_preview)
 
     def _setup_geometry(self):
-        """ 智能自适应屏幕分辨率并居中显示，使用统一的布局比例 """
+        """ 根据屏幕分辨率居中显示，并使用统一的布局比例 """
         sw, sh = self.app.root.winfo_screenwidth(), self.app.root.winfo_screenheight()
         w = min(Config.LAYOUT['export_max_w'], int(sw * Config.LAYOUT['export_dialog_w_ratio']))
         h = min(Config.LAYOUT['export_max_h'], int(sh * Config.LAYOUT['export_dialog_h_ratio']))
@@ -68,7 +72,7 @@ class ExportDialog:
         self._init_control_frame(self.right_frame)
 
     def _init_preview_frame(self, parent):
-        """ 初始化左侧的高清实时重绘预览面板 """
+        """ 初始化左侧的实时重绘预览面板 """
         tk.Label(
             parent, 
             text=Config.UI_TEXT['export_preview'], 
@@ -108,7 +112,7 @@ class ExportDialog:
         self.dpi_combo = self._add_combo(parent, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
         self.color_combo = self._add_combo(parent, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
         
-        # 引入通用的 ModernCheckbutton 小部件，消灭 Canvas 冗余绘制
+        # 引入通用的 ModernCheckbutton 小部件，避免冗余的 Canvas 绘制
         self.border_check = ModernCheckbutton(
             parent, 
             Config.UI_TEXT['export_show_border'], 
@@ -134,7 +138,7 @@ class ExportDialog:
         self.dir_lbl.pack(fill=tk.X, pady=(0, 8))
         
         # 3. 新增导出信息估算面板，展示宽度、高度与估算大小
-        # 升级为优雅的 Windows 原生 ttk.LabelFrame
+        # 使用 Windows 原生 ttk.LabelFrame 替代自定义控件
         self.info_group = ttk.LabelFrame(
             parent, 
             text=Config.UI_TEXT['export_info_group']
@@ -176,7 +180,7 @@ class ExportDialog:
         btn_frame = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
         btn_frame.pack(fill=tk.X, pady=(10, 0))
         
-        # 取消按钮，采用 Windows 原生圆角微立体 ttk.Button，手感极其细腻
+        # 取消按钮，采用标准的 ttk.Button
         self.cancel_btn = ttk.Button(
             btn_frame,
             text=Config.UI_TEXT['btn_cancel'],
@@ -184,7 +188,7 @@ class ExportDialog:
         )
         self.cancel_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
         
-        # 开始导出按钮，采用 Windows 原生重点高亮样式的 ttk.Button
+        # 开始导出按钮，采用高亮的 ttk.Button 样式
         self.export_btn = ttk.Button(
             btn_frame,
             text=Config.UI_TEXT['btn_start_export'],
@@ -194,14 +198,14 @@ class ExportDialog:
         self.export_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(6, 0))
 
     def _setup_bindings(self):
-        """ 绑定变量变化及窗口尺寸重构事件的实时监听 """
+        """ 绑定变量变化和窗口尺寸调整事件 """
         def on_dir_mode_changed(*_):
             is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
             self.browse_btn.config(state=(tk.NORMAL if is_custom else tk.DISABLED))
         self.dir_mode_var.trace_add("write", on_dir_mode_changed)
 
         def on_format_changed(*_):
-            is_vector = (self.fmt_var.get() in ("svg", "pdf"))
+            is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
             state = "disabled" if is_vector else "readonly"
             self.quality_combo.config(state=state)
             self.dpi_combo.config(state=state)
@@ -230,7 +234,7 @@ class ExportDialog:
         self.preview_canvas.bind("<Configure>", lambda e: self._update_preview())
 
     def _update_preview(self):
-        """ 在预览画布上毫秒级实时联动重绘包含或不含纸张边框及不同颜色模式的物理原图 """
+        """ 在预览画布上实时重绘包含或不含纸张边框及不同颜色模式的图像 """
         self.preview_canvas.delete("all")
         data = self.app.data_var.get().strip()
         divisor = self.app.divisor_var.get().strip()
@@ -248,10 +252,10 @@ class ExportDialog:
         elif self.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
             img = img.convert("1")
         
-        # 实时联动计算并更新物理尺寸与预估文件大小标签
+        # 实时计算并更新尺寸与预估文件大小标签
         self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
         
-        # 对预览图片进行智能自适应缩放以完美适应预览区
+        # 对预览图片进行自适应缩放以适应预览区域
         cw, ch = self.preview_canvas.winfo_width(), self.preview_canvas.winfo_height()
         if cw > 10 and ch > 10:
             fit_scale = min((cw - 40) / img.width, (ch - 40) / img.height)
@@ -267,7 +271,7 @@ class ExportDialog:
         self._recenter_canvas()
 
     def _update_export_info(self, img, data, dividend, divisor, q, rows, ctx):
-        """ 动态计算并刷新当前导出选项下的物理分辨率与预估文件字节大小 """
+        """ 动态计算并刷新当前导出选项下的分辨率与预估文件大小 """
         fmt = self.fmt_var.get()
         opt_q = Config.EXPORT_OPTIONS['qualities']
         
@@ -276,18 +280,18 @@ class ExportDialog:
             opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
         }.get(self.quality_var.get(), 1)
         
-        if fmt in ("svg", "pdf"):
+        if fmt in ("svg", "pdf", "emf"):
             w_real = img.width
             h_real = img.height
             
             if fmt == "svg":
-                # 调用全新的 SVGRenderer 进行内存转换，高内聚低耦合
+                # 调用 SVGRenderer 进行内存转换
                 svg_ctx = ctx.copy()
                 svg_ctx['color_mode'] = self.color_var.get()
                 svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, svg_ctx)
                 size_kb = len(svg_content.encode("utf-8")) / 1024.0
                 size_text = f"{size_kb:.2f} KB"
-            else: # pdf
+            elif fmt == "pdf":
                 if HAS_PDF_DEPENDENCY:
                     try:
                         pdf_ctx = ctx.copy()
@@ -306,6 +310,31 @@ class ExportDialog:
                         size_text = "估算失败"
                 else:
                     size_text = "PDF依赖未就绪"
+            else: # emf
+                if HAS_EMF_DEPENDENCY:
+                    try:
+                        hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, None, None, "CRC Chart")
+                        if hdc:
+                            self._draw_to_emf(hdc, data, dividend, divisor, q, rows, ctx)
+                            hemf = ctypes.windll.gdi32.CloseEnhMetaFile(hdc)
+                            if hemf:
+                                size = ctypes.windll.gdi32.GetEnhMetaFileBits(hemf, 0, None)
+                                if size > 0:
+                                    buf = ctypes.create_string_buffer(size)
+                                    ctypes.windll.gdi32.GetEnhMetaFileBits(hemf, size, buf)
+                                    size_kb = len(buf.raw) / 1024.0
+                                    size_text = f"{size_kb:.2f} KB"
+                                else:
+                                    size_text = "估算失败"
+                                ctypes.windll.gdi32.DeleteEnhMetaFile(hemf)
+                            else:
+                                size_text = "估算失败"
+                        else:
+                            size_text = "估算失败"
+                    except Exception:
+                        size_text = "估算失败"
+                else:
+                    size_text = "EMF仅限Windows系统"
             
             self.width_lbl.config(text=f"导出宽度: {w_real} 像素 (矢量)")
             self.height_lbl.config(text=f"导出高度: {h_real} 像素 (矢量)")
@@ -321,7 +350,7 @@ class ExportDialog:
                 except Exception:
                     pass
             
-            # 1. 第一阶段：极速粗算评估（直接在内存中测试保存 1.0 的预览原图，耗时 < 0.5ms，消灭任何滑块拖拽卡顿）
+            # 1. 第一阶段：初步粗算评估（在内存中保存基准尺寸的预览图，避免拖拽卡顿）
             color_mode = self.color_var.get()
             if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
                 img_rough = img.convert("L")
@@ -342,7 +371,7 @@ class ExportDialog:
             self.height_lbl.config(text=f"导出高度: {h_real} 像素")
             self.size_lbl.config(text=f"预估大小: {rough_size:.1f} KB (计算中...)")
             
-            # 2. 第二阶段：防抖 250ms 后，在后台超高清静默重绘并精密测算 100% 绝对物理大小
+            # 2. 第二阶段：防抖处理，在后台重绘以精确计算导出的文件大小
             def run_precise_calc():
                 ctx_calc = ctx.copy()
                 ctx_calc['view_scale'] = 1.0 * multiplier
@@ -367,7 +396,7 @@ class ExportDialog:
             self._calc_timer = self.dlg.after(250, run_precise_calc)
 
     def _recenter_canvas(self):
-        """ 智能重算对齐，保证预览图片完美贴附于画布正中央 """
+        """ 重新计算对齐，使预览图片居中显示 """
         self.preview_canvas.update_idletasks()
         cw, ch = self.preview_canvas.winfo_width(), self.preview_canvas.winfo_height()
         bbox = self.preview_canvas.bbox("all")
@@ -382,7 +411,7 @@ class ExportDialog:
             self.custom_dir_var.set(d)
 
     def export_chart(self):
-        """ 执行高保真大图导出的核心逻辑，统一处理 SVG 和高倍率位图输出 """
+        """ 执行图表导出的核心逻辑，支持 SVG 和位图输出 """
         try:
             opt_q = Config.EXPORT_OPTIONS['qualities']
             multiplier = {
@@ -407,6 +436,8 @@ class ExportDialog:
                 self._save_svg(out_path)
             elif fmt == "pdf":
                 self._save_pdf(out_path)
+            elif fmt == "emf":
+                self._save_emf(out_path)
             else:
                 self._save_bitmap(out_path, multiplier)
 
@@ -426,7 +457,7 @@ class ExportDialog:
         ctx['show_border'] = self.border_var.get()
         ctx['color_mode'] = self.color_var.get()
         
-        # 引入外部专一的 SVGRenderer 进行高保真矢量渲染
+        # 使用 SVGRenderer 进行矢量渲染
         svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, ctx)
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
@@ -445,18 +476,86 @@ class ExportDialog:
         ctx['show_border'] = self.border_var.get()
         ctx['color_mode'] = self.color_var.get()
         
-        # 1. 内存中编译出标准的无损 SVG 矢量 XML 字符串
+        # 1. 内存中生成 SVG 矢量 XML 字符串
         svg_content = SVGRenderer.render_to_svg(self.app.renderer, data, dividend, divisor, q, rows, ctx)
         
         # 2. 将 SVG 字符串封装为内存 BytesIO 流，交付 svglib 解析为 ReportLab 绘制树
         svg_io = io.BytesIO(svg_content.encode("utf-8"))
         drawing = svg2rlg(svg_io)
         
-        # 3. 通过 ReportLab 顶级图形绘制模块无损转译为标准的 PDF 文件并写入磁盘
+        # 3. 使用 ReportLab 将图形转换为 PDF 文件并写入磁盘
         renderPDF.drawToFile(drawing, out_path)
 
+    def _save_emf(self, out_path):
+        """ 保存为 EMF 增强型图元文件矢量格式 """
+        if not HAS_EMF_DEPENDENCY:
+            raise NotImplementedError("EMF 矢量导出格式仅支持在 Windows 操作系统下运行。")
+            
+        data = self.app.data_var.get().strip()
+        divisor = self.app.divisor_var.get().strip()
+        q, rows, dividend = self.app.engine.calculate(data, divisor)
+        
+        ctx = self.app._get_render_context()
+        ctx['view_scale'] = 1.0
+        
+        # 1. 建立指定输出路径的 EMF 绘图上下文
+        path_ptr = ctypes.c_wchar_p(out_path)
+        hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, path_ptr, None, "CRC Visualizer Chart")
+        if not hdc:
+            raise OSError("无法创建 EMF 设备上下文。")
+            
+        try:
+            # 2. 调用 EMF 拦截绘制器在设备上下文上绘制
+            self._draw_to_emf(hdc, data, dividend, divisor, q, rows, ctx)
+        finally:
+            # 3. 关闭设备并保存文件到磁盘，释放 GDI 句柄
+            hemf = ctypes.windll.gdi32.CloseEnhMetaFile(hdc)
+            if hemf:
+                ctypes.windll.gdi32.DeleteEnhMetaFile(hemf)
+
+    def _draw_to_emf(self, hdc, data, dividend, divisor, q, rows, ctx):
+        """ 将图表渲染到指定的 EMF 设备上下文中 """
+        ssaa_factor = Config.LAYOUT['ssaa_factor']
+        ctx_ssaa = ctx.copy()
+        ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
+
+        # 1. 临时画布与拦截器初始化，用于获取精确的边界框
+        renderer = self.app.renderer
+        L = renderer._calculate_layout(ctx_ssaa, dividend, divisor)
+        s = L['s']
+        
+        w_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
+        h_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
+        img_temp = Image.new("RGBA", (w_temp, h_temp), (0, 0, 0, 0))
+        draw_real = ImageDraw.Draw(img_temp)
+        
+        ox = Config.LAYOUT['draw_origin_offset'] * s
+        oy = Config.LAYOUT['draw_origin_offset'] * s
+        
+        # 2. 执行 Pillow 渲染，获取裁剪边界框
+        renderer._draw_quotient(draw_real, q, L, ctx_ssaa, ox, oy)
+        line_y = renderer._draw_header_elements(draw_real, dividend, L, ctx_ssaa, ox, oy)
+        renderer._draw_operands(draw_real, data, dividend, divisor, line_y, L, ctx_ssaa, ox, oy)
+        renderer._draw_steps(draw_real, rows, data, line_y, L, ctx_ssaa, ox, oy)
+        
+        bbox = img_temp.getbbox()
+        if not bbox:
+            return
+            
+        x0, y0, x1, y1 = bbox
+        p = int(ctx['padding'] * ctx['view_scale'])
+        
+        # 3. 创建 GDI 拦截器进行绘制
+        draw_proxy = EMFInterceptDraw(hdc, x0, y0, ssaa_factor, p)
+        
+        # 4. 在 GDI 上完整绘制整个算式
+        renderer._draw_quotient(draw_proxy, q, L, ctx_ssaa, ox, oy)
+        line_y = renderer._draw_header_elements(draw_proxy, dividend, L, ctx_ssaa, ox, oy)
+        renderer._draw_operands(draw_proxy, data, dividend, divisor, line_y, L, ctx_ssaa, ox, oy)
+        renderer._draw_steps(draw_proxy, rows, data, line_y, L, ctx_ssaa, ox, oy)
+
     def _save_bitmap(self, out_path, multiplier):
-        """ 在内存中以指定 high-DPI 物理重绘并写入位图文件 """
+        """ 在内存中以指定的分辨率渲染并写入位图文件 """
         data = self.app.data_var.get().strip()
         divisor = self.app.divisor_var.get().strip()
         q, rows, dividend = self.app.engine.calculate(data, divisor)
@@ -503,10 +602,10 @@ class ExportDialog:
 
 class SuccessDialog:
     """
-    导出成功自定义精致提示框。
+    导出成功提示框。
     
-    100% 采用 Windows 原生 ttk 控件重绘。
-    包含翡翠绿实心圆形白色勾号成功徽章、大字大描述排版、圆角只读路径框，以及等高的右对齐动作按钮。
+    采用标准的 ttk 控件实现。
+    包含成功状态徽章、路径展示框以及确认与打开目录按钮。
     """
     def __init__(self, parent, out_path, export_dir):
         self.dlg = tk.Toplevel(parent)
@@ -517,18 +616,18 @@ class SuccessDialog:
         # 统一系统背景底色
         self.dlg.configure(bg=Config.COLORS['main_bg'])
         
-        # 从配置文件读取大尺寸高雅物理参数
+        # 从配置文件读取尺寸参数
         w = Config.LAYOUT['success_dialog_w']
         h = Config.LAYOUT['success_dialog_h']
         pad = Config.LAYOUT['success_dialog_pad']
         icon_sz = Config.LAYOUT['success_icon_size']
         
-        # 智能居中物理坐标计算
+        # 计算居中位置坐标
         sw, sh = parent.winfo_screenwidth(), parent.winfo_screenheight()
         self.dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         self.dlg.resizable(False, False)
         
-        # 主体布局容器，提供充足的内边距，实现极佳的空灵呼吸留白感
+        # 主体布局容器，提供内边距
         main_frame = tk.Frame(self.dlg, bg=Config.COLORS['main_bg'], padx=pad, pady=pad)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -540,12 +639,12 @@ class SuccessDialog:
         top_bar = tk.Frame(main_frame, bg=Config.COLORS['main_bg'])
         top_bar.pack(side=tk.TOP, fill=tk.X, expand=True)
         
-        # 绘制高端的手绘现代翡翠绿打勾徽章 Canvas (Success Badge)
+        # 绘制打勾状态的徽章 Canvas
         try:
             icon_cv = tk.Canvas(top_bar, width=icon_sz, height=icon_sz, bg=Config.COLORS['main_bg'], highlightthickness=0)
             icon_cv.pack(side=tk.LEFT, anchor="n", padx=(0, 16))
             
-            # 画一个翡翠绿实心圆形 (#10b981)
+            # 绘制绿色实心圆形
             icon_cv.create_oval(2, 2, icon_sz - 2, icon_sz - 2, fill="#10b981", outline="")
             
             # 画白色粗线条打勾，勾角采用圆润端点
@@ -554,7 +653,7 @@ class SuccessDialog:
         except Exception:
             pass
             
-        # 大气的大字标题与二级描述排版区
+        # 标题与描述区域
         txt_frame = tk.Frame(top_bar, bg=Config.COLORS['main_bg'])
         txt_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
@@ -564,7 +663,7 @@ class SuccessDialog:
         desc_lbl = ttk.Label(txt_frame, text="您的文件已保存至本地：", font=Config.FONTS['zh_normal'], background=Config.COLORS['main_bg'], foreground="#64748b")
         desc_lbl.pack(anchor="w")
         
-        # 3. 部署高品位的“只读路径展示卡”，支持横向滚动与 Ctrl+C 复制，排版极其整洁！
+        # 3. 设置只读路径展示框，方便用户复制路径
         path_entry = ttk.Entry(main_frame, font=Config.FONTS['combo'], justify="left")
         path_entry.pack(fill=tk.X, pady=(12, 18))
         

@@ -3,8 +3,8 @@ from config.constants import Config
 
 class SVGInterceptDraw:
     """
-    轻量级绘图指令拦截器代理类。
-    用于在内存绘制 Pillow 算式图像的同时，无感拦截记录所有 text, line, rectangle 原语。
+    绘图指令拦截器代理类。
+    用于在内存中绘制 Pillow 图像的同时拦截记录 text、line 和 rectangle 命令。
     """
     def __init__(self, real_draw):
         self.real_draw = real_draw
@@ -44,22 +44,22 @@ class SVGInterceptDraw:
 
 class SVGRenderer:
     """
-    SVG 矢量图专用渲染转换器。
+    SVG 渲染转换器。
     
-    采用静态转换逻辑驱动传入的 CanvasRenderer 实质排版器，
-    将拦截到的二维 Pillow 图形指令无损编译为标准的 SVG 1.1 矢量 XML 文本。
+    使用 CanvasRenderer 进行排版，
+    将拦截到的绘图指令转换为 SVG 1.1 格式的 XML 文本。
     """
     @staticmethod
     def render_to_svg(renderer, data, dividend, divisor, q, rows, ctx):
         """
-        将 CRC 除法步骤绘制过程渲染并生成高品质无损 SVG 矢量字符串。
-        完全复用 CanvasRenderer 实例的排版和绘制方法，从而保持与 Pillow 预览的像素级一致性。
+        渲染 CRC 长除法步骤并生成 SVG 格式的字符串。
+        复用 CanvasRenderer 实例的绘制逻辑，以保持与预览界面一致。
         """
         ssaa_factor = Config.LAYOUT['ssaa_factor']
         ctx_ssaa = ctx.copy()
         ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
 
-        # 1. 临时高分画布与拦截器初始化
+        # 1. 临时画布与拦截器初始化
         L = renderer._calculate_layout(ctx_ssaa, dividend, divisor)
         s = L['s']
         
@@ -72,7 +72,7 @@ class SVGRenderer:
         ox = Config.LAYOUT['draw_origin_offset'] * s
         oy = Config.LAYOUT['draw_origin_offset'] * s
         
-        # 2. 执行与 Pillow 实质渲染完全一致的几何绘制指令
+        # 2. 执行几何绘制指令
         renderer._draw_quotient(draw_temp, q, L, ctx_ssaa, ox, oy)
         line_y = renderer._draw_header_elements(draw_temp, dividend, L, ctx_ssaa, ox, oy)
         renderer._draw_operands(draw_temp, data, dividend, divisor, line_y, L, ctx_ssaa, ox, oy)
@@ -128,7 +128,7 @@ class SVGRenderer:
         def to_svg_color_and_opacity(color_in):
             """
             解析并应用色彩滤镜，将颜色统一解耦输出为 (hex_color, opacity_val) 元组。
-            这在任何版本的 WPS/Office 中均能 100% 正确渲染，避开 rgba() 解析缺陷带来的纯黑块渲染。
+            这有助于在不支持 rgba() 解析的环境中正确渲染，避免纯黑块的渲染。
             """
             if color_in is None or color_in == "none":
                 return "none", 1.0
@@ -166,7 +166,7 @@ class SVGRenderer:
                 font_sz = getattr(font, 'size', ctx_ssaa['font_size'] * ctx_ssaa['view_scale'])
                 font_sz_real = font_sz / ssaa_factor
                 
-                # 基线偏移补偿：移除 dominant-baseline="central"，通过 y' = y + 0.33 * FontSize 实现跨平台完美垂直居中
+                # 基线偏移补偿：通过 y' = y + 0.33 * FontSize 调整垂直居中对齐
                 ty = (cy - y0) / ssaa_factor + p + 0.33 * font_sz_real
                 
                 # 特殊字符转义，保证 XML 合规
@@ -244,7 +244,7 @@ class SVGRenderer:
                     f'{fill_attrs} {stroke_attrs} stroke-width="{width:.2f}" />'
                 )
 
-        # 6. 处理精美外边框线
+        # 6. 绘制外边框线
         if ctx.get('show_border', True):
             border_w = max(1.0, 2.0 * ctx['view_scale'])
             border_color, border_op = to_svg_color_and_opacity("#000000")

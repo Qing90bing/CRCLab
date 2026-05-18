@@ -3,11 +3,10 @@ from config.constants import Config
 
 class CanvasRenderer:
     """
-    视觉渲染引擎 - 采用 Pillow 内存绘图技术实现高保真 CRC 运算过程绘制。
+    图像渲染引擎 - 采用 Pillow 内存绘图技术实现 CRC 运算过程绘制。
     
-    遵循统一渲染管线设计，所有绘制都在内存透明画布上完成，
-    利用 Pillow 像素级 getbbox() 自动实现高保真算式的紧凑裁剪与对称拼装。
-    100% 杜绝预览与导出不一致的问题，支持真高 DPI 无损物理级图像重绘。
+    在内存中进行画布渲染与元素定位，通过 getbbox() 实现算式图像的边缘裁剪与拼装，
+    支持不同缩放倍率下的图像重绘。
     """
     def __init__(self, canvas):
         """
@@ -18,8 +17,8 @@ class CanvasRenderer:
 
     def _load_font(self, size):
         """
-        智能、安全地加载高品质 Times New Roman 矢量字体。
-        如果系统不包含该字体，则安全回退到 Config.FONTS['fallback_families'] 列表，确保 100% 绝不报错。
+        加载 Times New Roman 矢量字体。
+        如果系统不包含该字体，则按顺序尝试加载 fallback_families 列表中的备用字体。
         """
         families = Config.FONTS['fallback_families']
         for family in families:
@@ -31,22 +30,21 @@ class CanvasRenderer:
 
     def _render_raw_formula(self, data, dividend, divisor, q, rows, ctx_ssaa, ssaa_factor):
         """
-        在超采样的高分辨率临时画布上绘制公式并执行 getbbox() 紧凑裁剪与缩放。
+        在超采样的临时画布上绘制公式并执行 getbbox() 裁剪与缩放。
         
-        将超分辨率公式绘制裁剪逻辑与最终的纸张装裱和边框渲染进行阶段性解耦，
-        使各个步骤的逻辑更单一，函数保持极高的内聚性。
+        将超采样绘制与最终的背景填充及边框绘制进行步骤解耦，以实现更好的模块内聚。
         """
         L = self._calculate_layout(ctx_ssaa, dividend, divisor)
         s = L['s']
         
-        # 将临时画布大小优化为更紧凑高效的配置参数大小，内存分配及 bbox 扫描开销暴跌 60%，带来极致性能
+        # 配置临时画布尺寸，以减少内存占用与扫描开销
         w_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
         h_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
         img_temp = Image.new("RGBA", (w_temp, h_temp), (0, 0, 0, 0))
         draw_temp = ImageDraw.Draw(img_temp)
         
         ox = Config.LAYOUT['draw_origin_offset'] * s
-        oy = Config.LAYOUT['draw_origin_offset'] * s  # 安全偏移原点同步优化，完全保证除数不溢出且图纸完美包络
+        oy = Config.LAYOUT['draw_origin_offset'] * s  # 设置绘图原点偏移，避免内容截断
         
         self._draw_quotient(draw_temp, q, L, ctx_ssaa, ox, oy)
         line_y = self._draw_header_elements(draw_temp, dividend, L, ctx_ssaa, ox, oy)
@@ -60,7 +58,7 @@ class CanvasRenderer:
         x0, y0, x1, y1 = bbox
         img_formula = img_temp.crop(bbox)
         
-        # SSAA 抗锯齿核心：利用顶级 Lanczos 滤波器将超采样倍高分图缩回真实尺寸，消除锯齿！
+        # SSAA 抗锯齿：利用 Lanczos 滤波器对图像进行下采样以平滑边缘
         w_real = int((x1 - x0) / ssaa_factor)
         h_real = int((y1 - y0) / ssaa_factor)
         if w_real > 0 and h_real > 0:
@@ -70,11 +68,11 @@ class CanvasRenderer:
 
     def render(self, data, dividend, divisor, q, rows, ctx):
         """
-        核心渲染入口：双通道裁剪拼装模式（内嵌 SSAA 极清抗锯齿物理平滑）。
+        渲染入口函数：包含超采样与拼接逻辑。
         
-        1. 采用超采样超高分辨率绘制所有矢量算式元素；
-        2. 裁剪出有效像素区域并利用 LANCZOS 缩回物理尺寸，消灭锯齿；
-        3. 拼接在带有完美外边距的白色纸张中央，并装配精美外边框。
+        1. 采用超采样高分辨率绘制所有算式元素；
+        2. 裁剪出有效区域并利用 Lanczos 滤波器缩放至物理尺寸以平滑线条；
+        3. 拼接到带边距的白色背景纸张中央，并可选择绘制外边框。
         """
         ssaa_factor = Config.LAYOUT['ssaa_factor']
         ctx_ssaa = ctx.copy()
@@ -93,7 +91,7 @@ class CanvasRenderer:
         img_sheet = Image.new("RGBA", (w_sheet, h_sheet), ctx['sheet_bg_color'])
         img_sheet.paste(img_formula, (p, p), img_formula)
         
-        # 绘制精美纸张外框线
+        # 绘制纸张外框线
         if ctx.get('show_border', True):
             draw_sheet = ImageDraw.Draw(img_sheet)
             border_w = max(1, int(2 * ctx['view_scale']))
@@ -133,13 +131,13 @@ class CanvasRenderer:
         current_y = L['cell_h']
         line_y = current_y + L['cell_h'] * 0.1
         
-        # 智能对齐：计算除数末尾与被除数开头的几何中点，作为弧线交点
+        # 计算除数末尾与被除数开头的几何中点，作为弧线交点
         divisor_end_col = L['divisor_len'] - 1
         dividend_start_col = L['pad_cells']
         mid_col = (divisor_end_col + dividend_start_col) / 2
         mid_x = mid_col * L['cell_w'] + L['cell_w']/2
         
-        # 视觉平衡修正：微调横线起点
+        # 微调横线起点
         visual_balance_offset = abs(ctx['curve_span_left'] * L['grid_base']) / 2
         line_left = mid_x + visual_balance_offset + ctx['curve_span_right'] * L['grid_base']
         

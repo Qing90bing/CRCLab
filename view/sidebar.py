@@ -16,7 +16,7 @@ class SidebarPanel(tk.Frame):
         初始化侧边栏。
         :param parent: 容纳侧边栏的父容器。
         :param app: 主应用程序 CRCVisualizerApp 实例。
-        :param width: 侧边栏物理宽度。
+        :param width: 侧边栏宽度。
         """
         super().__init__(parent, bg=Config.COLORS['sidebar_bg'], width=width)
         self.app = app
@@ -32,7 +32,7 @@ class SidebarPanel(tk.Frame):
         self._init_color_section()
 
     def _build_scrollable_container(self, side_w):
-        """ 物理构建带滚动条的响应式侧边栏容器框架 """
+        """ 构建带滚动条的侧边栏容器框架 """
         self.side_canvas = tk.Canvas(self, bg=Config.COLORS['sidebar_bg'], highlightthickness=0)
         self.side_scrollbar = tk.Scrollbar(self, orient="vertical", command=self.side_canvas.yview)
         
@@ -56,7 +56,7 @@ class SidebarPanel(tk.Frame):
         self.side_scrollbar.pack(side="right", fill="y")
         self.side_canvas.pack(side="left", fill="both", expand=True)
 
-        # 鼠标移入自动绑定/移出解绑全局滚轮事件，优雅防止与主 Canvas 产生滚动冲突
+        # 鼠标移入自动绑定/移出解绑全局滚轮事件，防止与主 Canvas 产生滚动冲突
         def _bind_mousewheel(event):
             self.side_canvas.bind_all("<MouseWheel>", lambda e: self.side_canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
         def _unbind_mousewheel(event):
@@ -107,7 +107,7 @@ class SidebarPanel(tk.Frame):
         tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
 
     def _init_style_section(self):
-        """ 初始化排版与长除法物理间距微调滑块区 """
+        """ 初始化排版与长除法间距滑块区 """
         parent = self.inner_panel
         tk.Label(parent, text=Config.UI_TEXT['style_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
         
@@ -134,7 +134,7 @@ class SidebarPanel(tk.Frame):
         ttk.Button(parent, text=Config.UI_TEXT['btn_reset_params'], command=self.app.reset_params).pack(fill=tk.X, pady=(5, Config.LAYOUT['section_pady']))
 
     def _init_color_section(self):
-        """ 初始化多维色彩配置项，并在底部渲染最为尊贵、大气的“导出图表”大按钮 """
+        """ 初始化色彩配置项，并在底部渲染“导出图表”按钮 """
         parent = self.inner_panel
         tk.Label(parent, text=Config.UI_TEXT['color_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
         
@@ -162,7 +162,7 @@ class SidebarPanel(tk.Frame):
         # 恢复默认色彩按钮
         ttk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.app.reset_colors).pack(fill=tk.X, pady=(15, 20))
                   
-        # 分割线及高亮“导出图表”尊贵按钮
+        # 分割线及“导出图表”按钮
         tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
         ttk.Button(parent, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
                    style='Action.TButton').pack(fill=tk.X, pady=(15, 30))

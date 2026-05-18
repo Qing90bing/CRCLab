@@ -16,31 +16,24 @@ class Config:
         'canvas_bg_color': "#d1d5db"   # 绘图区域最底层的背景色
     }
 
-    # 系统界面配色：定义窗口底色、组件背景与状态高亮联动
     COLORS = {
         'main_bg': "#f3f4f6",           # 主窗口底色
         'sidebar_bg': "#ffffff",        # 侧边栏容器背景
         'sidebar_title_fg': "#1e293b",  # 侧边栏主标题颜色
-        'primary': "#3b82f6",           # 品牌主色调（高亮勾选框、主按钮）
-        'primary_active': "#2563eb",    # 主色调激活/悬停态
+        'primary': "#3b82f6",           # brand主色调（高亮勾选框、主按钮）
         'divider': "#e5e7eb",           # 分割线颜色
-        'btn_default_bg': "#f8fafc",    # 常规小按钮背景色
         'border_enabled': "#cbd5e1",    # 色块启用状态边框色
         'border_disabled': "#f3f4f6",   # 色块禁用状态边框色
         'fg_enabled': "#000000",        # 启用态文字前景色
         'fg_disabled': "#cbd5e1",       # 禁用态文字置灰前景色
         'canvas_default_bg': "#d1d5db", # 主画布默认背景色
         'toolbar_bg': "#ffffff",        # 画布工具栏背景
-        'zoom_btn_bg': "#f8fafc",       # 缩放按钮背景色
         'toolbar_divider': "#e2e8f0",   # 工具栏垂直分割线背景
         'preview_canvas_bg': "#ffffff",  # 导出预览画布背景色
         'preview_canvas_border': "#cbd5e1", # 导出预览画布边框高亮色
         'dir_lbl_fg': "#64748b",        # 导出目录路径文字灰色
-        'cancel_bg': "#ef4444",         # 取消按钮高雅红
-        'export_btn_bg': "#10b981",     # 开始导出翡翠绿
     }
 
-    # 静态提示信息与弹窗文案集合
     MESSAGES = {
         'warning_title_invalid': "输入无效",
         'warning_empty': "数据位和多项式不能为空！",
@@ -49,10 +42,7 @@ class Config:
         'warning_title_algo': "算法限制",
         'warning_poly_first_bit_1': "多项式首位必须为 1 才能进行有效的 CRC 除法计算。",
         'warning_poly_len_min_2': "多项式长度至少需为 2 位。",
-        'error_title_custom_dir': "选择路径错误",
         'warning_custom_dir_empty': "已选择“自定义目录”，但尚未通过“浏览目录”按钮指定具体导出路径。",
-        'export_success_title': "导出成功",
-        'export_success_body': "图表已成功导出至：\n",
         'export_fail_title': "导出失败",
         'export_fail_body': "导出过程中发生错误，请按以下信息排查：\n\n1) 错误类型: {error_type}\n2) 错误详情: {error_msg}\n3) 建议排查: 请确认目录写入权限或导出参数是否有效。",
     }
@@ -70,7 +60,6 @@ class Config:
     GRID_BASE = 35
     DEFAULT_FONT_SIZE = 22
     
-    # 界面文本配置：集中管理所有 UI 标签，方便国际化或快速文案调整
     UI_TEXT = {
         'title': "CRC 长除法解析与验证工具",
         'data_label': "数据位:",
@@ -86,15 +75,12 @@ class Config:
         'span_left': "弧线左跨度:",
         'span_right': "弧线右偏移:",
         'color_section': "配色方案:",
-        'btn_generate': "生成解析图",
         'btn_reset_color': "恢复默认配色",
         'btn_fit': "适应屏幕",
         'btn_reset_view': "重置比例",
         'btn_reset_params': "恢复默认参数",
-        'canvas_ctrl': "画布控制:",
         'sidebar_title': "功能配置",
         'style_section': "排版布局参数:",
-        'hint_scroll': "*实时拖动滑块调整视图",
         
         # 主界面配色标签说明文字
         'btn_export': "导出图表",
@@ -131,18 +117,13 @@ class Config:
         'min_side_width': 400,   # 侧边栏最小宽度保证
         'input_padx': 20,        # 输入区域水平内边距
         'input_pady': 20,        # 输入区域垂直内边距
-        'slider_len': 22,        # 滑块自身的物理长度
-        'slider_thick': 22,      # 滑块轨道的垂直厚度
         'check_size': 20,        # 自定义复选框的尺寸
         'check_color': "#3b82f6",# 复选框激活时的蓝色调
         'entry_pady': 15,        # 输入框组件之间的外部间距
         'entry_ipady': 8,        # 输入框内部垂直厚度 (Internal Padding)
-        'btn_pady': 8,           # 按钮组件之间的外部间距
-        'btn_ipady': 8,          # 按钮内部垂直厚度
         'section_pady': 25,      # 各个逻辑功能区之间的垂直间距
         'canvas_bg': "#1e293b",  # 画布容器的背景（暗色调）
         'toolbar_bg': "#ffffff", # 工具栏背景
-        'toolbar_opacity': 0.9,  # 工具栏透明度
         'export_dialog_w_ratio': 0.88,  # 导出对话框对物理屏幕宽度的占比
         'export_dialog_h_ratio': 0.88,  # 导出对话框对物理屏幕高度的占比
         'export_side_width': 450,        # 导出侧边控制栏宽度
@@ -173,13 +154,13 @@ class Config:
         'temp_canvas_base': 2500,        # SSAA 公式临时高分画布基准大小
         'draw_origin_offset': 600.0,     # SSAA 渲染的原点安全偏置
         'ssaa_factor': 2,                # SSAA 抗锯齿超采样因子
-        'curve_segments': 40,            # 除法左侧贝塞尔曲线分段数
+        'curve_segments': 200,            # 贝塞尔曲线分段数（提高采样数以减少矢量曲线导出时的锯齿感）
         
         # 自定义色彩块拾色按钮物理尺寸，调大以方便用户点击
         'color_swatch_w': 80,           # 色彩拾色块物理宽度
         'color_swatch_h': 30,            # 色彩拾色块物理高度
         
-        # 导出成功提示卡弹窗物理参数，提供充足的留白与气派的现代化排版
+        # 导出成功提示弹窗的尺寸与边距参数
         'success_dialog_w': 740,         # 导出成功弹窗宽度
         'success_dialog_h': 300,         # 导出成功弹窗高度
         'success_dialog_pad': 30,        # 弹窗内边距 (Padding)
@@ -215,7 +196,7 @@ class Config:
 
     # 导出下拉菜单的可选参数元数据集合
     EXPORT_OPTIONS = {
-        'formats': ["png", "jpg", "svg", "pdf"],
+        'formats': ["png", "jpg", "svg", "pdf", "emf"],
         'qualities': [
             "标清默认尺寸", "标清默认尺寸1倍", "标清默认尺寸2倍",
             "标清默认尺寸3倍", "高清默认尺寸1倍", "高清默认尺寸2倍"
@@ -229,14 +210,27 @@ class Config:
     FONTS = {
         'zh_bold': ("SimSun", 11, "bold"),   # 中文标题加粗
         'zh_normal': ("SimSun", 11),         # 中文正文
-        'en_main': ("Times New Roman", 12),   # 核心数据（建议使用衬线体模拟数学公式感）
+        'en_main': ("Times New Roman", 12),   # 核心数据字体，采用衬线体以模拟公式样式
         
         # 扩展 UI 通用组件字体
-        'combo': ("SimSun", 10),                 # 下拉选择框字体
         'side_title': ("SimSun", 16, "bold"),    # 侧边栏主标题字体
+        'combo': ("SimSun", 10),                 # 下拉选择框字体
         'btn_small': ("SimSun", 9),              # 侧边栏常规小按钮字体
-        'btn_large_bold': ("SimSun", 11, "bold"),# 侧边栏深蓝大按钮/动作大按钮字体
-        'zoom_btn': ("Arial", 13, "bold"),       # 顶部放大/缩小物理图标字体
+        'zoom_btn': ("Arial", 13, "bold"),       # 缩放控制按钮字体
         'zoom_lbl': ("Times New Roman", 12, "bold"),       # 顶部比例显示字体
-        'fallback_families': ["times.ttf", "times", "arial.ttf", "arial", "simsun.ttc", "simsun"], # 渲染器安全回退字体族列表
+        'fallback_families': ["times.ttf", "times", "arial.ttf", "arial", "simsun.ttc", "simsun"], # 字体回退列表
+        'gdi_family': "Times New Roman",         # Windows GDI 矢量导出默认字体
+    }
+
+    # GDI 矢量绘制配置参数
+    GDI = {
+        'bk_transparent': 1,           # GDI SetBkMode 背景透明 (TRANSPARENT)
+        'ta_center_baseline': 30,      # GDI 文本水平及基线对齐标志
+        'null_brush': 5,               # GDI NULL_BRUSH 空画刷
+        'null_pen': 8,                 # GDI NULL_PEN 空画笔
+        'ps_solid': 0,                 # GDI PS_SOLID 实线画笔样式
+        'fw_normal': 400,              # GDI FW_NORMAL 普通字宽
+        'default_charset': 1,          # GDI DEFAULT_CHARSET 默认字符集
+        'antialiased_quality': 4,      # GDI ANTIALIASED_QUALITY 高级抗锯齿字体品质
+        'baseline_offset_ratio': 0.33, # GDI 文本垂直基线对齐微调比率
     }

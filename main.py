@@ -1,4 +1,3 @@
-import os
 import ctypes
 import tkinter as tk
 from tkinter import messagebox, colorchooser, ttk
@@ -14,8 +13,8 @@ class CRCVisualizerApp:
     """
     CRC Visualizer 应用程序主类。
     
-    采用简洁优雅的 MVP/MVC 架构控制层，将臃肿的侧边栏 UI 布局彻底外包给 view/sidebar.py，
-    统一、显式地管理全部排版及数据控制变量，提供极快、极清的高保真渲染交互体验。
+    管理主界面视图与核心渲染管线，通过侧边栏面板进行参数控制交互，
+    统一管理状态变量并协调图像的重绘与导出。
     """
     def __init__(self, root):
         self.root = root
@@ -38,7 +37,7 @@ class CRCVisualizerApp:
         # 4. 构建解耦后的 GUI 界面
         self.setup_ui()
         
-        # 5. 启动自验证生成与首帧居中
+        # 5. 执行首次图像渲染生成与居中显示
         self.root.update_idletasks()
         self.update_ui_states()
         self.generate(auto_center=True)
@@ -70,7 +69,7 @@ class CRCVisualizerApp:
             setattr(self, attr, color)
 
     def _setup_window_geometry(self):
-        """ 配置窗口初始大小及位置（智能居中，并默认最大化启动） """
+        """ 配置窗口初始大小及位置（居中显示，并在支持的平台上尝试最大化启动） """
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         w = min(Config.LAYOUT['window_max_w'], int(sw * Config.LAYOUT['window_w_ratio']))
         h = min(Config.LAYOUT['window_max_h'], int(sh * Config.LAYOUT['window_h_ratio']))
@@ -79,7 +78,7 @@ class CRCVisualizerApp:
         self.root.configure(bg=Config.COLORS['main_bg'])
         
         try:
-            # 默认以窗口最大化启动，为高清晰度长除法画布提供极致沉浸空间
+            # 尝试以窗口最大化启动
             self.root.state('zoomed')
         except Exception:
             pass
@@ -91,22 +90,22 @@ class CRCVisualizerApp:
         except Exception:
             pass
             
-        # 像素级大一统高度栅格配置
-        # vista主题下通过精微Padding微调，使得Entry、Combobox和Button在物理高度上绝对像素级对齐！
+        # 组件高度对齐配置
+        # 对 vista 主题的 Entry、Combobox 和 Button 进行 Padding 微调以使高度对齐
         self.style.configure('TEntry', padding=(10, 7))
         self.style.configure('TCombobox', padding=(10, 6))
         self.style.configure('TCombobox', font=Config.FONTS['combo'])
         
-        # 原生 Windows TButton 样式高度对齐，并显式指定 9pt 基准字号
+        # 常规按钮样式，统一 padding 配置
         self.style.configure('TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
         
-        # 尊贵的高亮主动作按钮样式，使用与 TButton 相同的 9pt 字号（仅设为粗体），并显式绑定相同 padding，确保高度物理上绝对等高！
+        # 高亮动作按钮样式，使用粗体并统一 padding 以确保与常规按钮高度等高
         self.style.configure('Action.TButton', font=Config.FONTS['zh_bold'], padding=(10, 5))
         
-        # 顶部悬浮工具栏按钮样式定制：
-        # 1. 文本按钮样式（适应屏幕、重置比例），解决点击区域过小、在高DPI下难以点按的问题
+        # 顶部工具栏按钮样式：
+        # 1. 常规文本按钮样式，增加 padding 以利于交互点按
         self.style.configure('Toolbutton', font=Config.FONTS['zh_normal'], padding=(12, 12))
-        # 2. 缩放符号按钮样式（-、+），使用专门的粗体大字号，使加减号更加醒目，并留出合适的防滑微间距
+        # 2. 缩放符号按钮样式（-、+），配置较大字号以使加减符号醒目清晰
         self.style.configure('Zoom.Toolbutton', font=Config.FONTS['zoom_btn'], padding=(10, 8))
 
     # --- UI 构建逻辑 ---
@@ -141,8 +140,8 @@ class CRCVisualizerApp:
         self.canvas.bind("<MouseWheel>", self.on_mousewheel)
 
     def _setup_canvas_toolbar(self, parent):
-        """ 构建悬浮于画布上方的现代化浮动控制工具栏 """
-        # 使用 1px 细微扁平边框代替传统 Raised 浮雕边框，实现极简现代的悬浮卡片感，并增加内边距
+        """ 构建画布上方的浮动控制工具栏 """
+        # 使用 1 像素扁平边框，配置内边距实现悬浮工具栏样式
         tb = tk.Frame(
             parent, 
             bg=Config.COLORS['toolbar_bg'], 
@@ -154,7 +153,7 @@ class CRCVisualizerApp:
         )
         tb.place(relx=0.5, y=35, anchor="n")
         
-        # 放大/缩小按钮及百分比标签，使用专门定义的 Zoom.Toolbutton 提升易点按度，并使用更美观饱满的全角加减号
+        # 缩放控制区域：包括放大、缩小及当前比例指示标签
         ttk.Button(tb, text="－", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']), 
                    style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
         self.zoom_lbl = tk.Label(tb, text="100%", font=Config.FONTS['zoom_lbl'], 
@@ -163,10 +162,10 @@ class CRCVisualizerApp:
         ttk.Button(tb, text="＋", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_in_factor']), 
                    style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
         
-        # 垂直分割线，微调高度及外边距以呼应整体增高的工具栏
+        # 垂直分割线
         tk.Frame(tb, width=1, bg=Config.COLORS['toolbar_divider'], height=24).pack(side=tk.LEFT, padx=14)
         
-        # 适应屏幕与重置比例按钮，使用大尺寸扁平 Toolbutton，带给用户更尊贵与轻松的点击质感
+        # 适应屏幕与重置比例控制按钮
         ttk.Button(tb, text=Config.UI_TEXT['btn_fit'], command=self.center_view, 
                    style='Toolbutton').pack(side=tk.LEFT, padx=4)
         ttk.Button(tb, text=Config.UI_TEXT['btn_reset_view'], command=self.reset_view, 
@@ -175,7 +174,7 @@ class CRCVisualizerApp:
     # --- 核心渲染驱动与防抖管道 ---
 
     def generate(self, auto_center=False, force_rebuild=True):
-        """ 核心生成入口：采用双通道缓存加速，15ms 智能防抖合并滑块拖拽 """
+        """ 图像生成主入口，包含防抖处理以合并高频触发事件 """
         if not force_rebuild:
             self._actual_generate(auto_center, force_rebuild=False)
             return
@@ -196,7 +195,7 @@ class CRCVisualizerApp:
         self.root.after(15, run_generation)
 
     def _actual_generate(self, auto_center=False, force_rebuild=True):
-        """ 实际的渲染物理管线：利用基准大图缓存，将缩放视角与排版重绘深度解耦 """
+        """ 渲染执行逻辑，通过基准缓存图解耦缩放计算与排版绘制 """
         data = self.data_var.get().strip()
         divisor = self.divisor_var.get().strip()
         
@@ -213,14 +212,14 @@ class CRCVisualizerApp:
             messagebox.showwarning(Config.MESSAGES['warning_title_algo'], Config.MESSAGES['warning_poly_len_min_2'])
             return
 
-        # 1. 仅在参数数据实际变化，或缓存未初始化时，才重新进行 SSAA 内存排版绘制
+        # 1. 在参数数据变化或缓存未初始化时，重新进行内存排版绘制
         if force_rebuild or not getattr(self, 'base_image', None):
             q, rows, dividend = self.engine.calculate(data, divisor)
             ctx = self._get_render_context()
             ctx['view_scale'] = 1.0  # 基础缓存图的渲染物理原尺寸固定为 1.0
             self.base_image = self.renderer.render(data, dividend, divisor, q, rows, ctx)
 
-        # 2. 从极其轻量级的内存缓存中直接根据当前 view_scale 极速缩放视角
+        # 2. 根据当前缩放比例调整缓存图像尺寸
         vs = getattr(self, 'view_scale', 1.0)
         from PIL import Image, ImageTk # 延迟导入，减少主线程加载负担
         if abs(vs - 1.0) > 1e-4:
@@ -230,7 +229,7 @@ class CRCVisualizerApp:
         else:
             img = self.base_image
         
-        # 3. 贴在 Canvas 中央并更新视口范围
+        # 3. 在画布上渲染图像并更新滚动范围
         self.photo_img = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
         self.canvas.config(bg=self.canvas_bg_color)
@@ -241,7 +240,7 @@ class CRCVisualizerApp:
             self.center_view()
 
     def _get_render_context(self):
-        """ 收集并返回当前配置变量的精细渲染上下文字典 """
+        """ 收集并返回当前配置变量的渲染上下文字典 """
         ctx = {
             'view_scale': getattr(self, 'view_scale', 1.0),
             'font_size': self.font_size_var.get(),
@@ -297,7 +296,7 @@ class CRCVisualizerApp:
         self.canvas.scan_dragto(event.x, event.y, gain=1)
 
     def pick_color(self, attr):
-        """ 唤起系统色彩盘挑选色值，并同步更新侧边栏预览色块与物理 Canvas 重绘 """
+        """ 打开系统调色板选择颜色，并同步更新侧边栏预览色块与画布 """
         color = colorchooser.askcolor(initialcolor=getattr(self, attr))[1]
         if color:
             setattr(self, attr, color)
@@ -336,11 +335,11 @@ class CRCVisualizerApp:
             self.sidebar.update_states(is_gray_enabled)
 
     def open_export_dialog(self):
-        """ 唤起高保真导出配置对话框 """
+        """ 打开导出配置对话框 """
         ExportDialog(self)
 
 if __name__ == "__main__":
-    # Windows 系统高 DPI 物理缩放拉伸清晰度补强
+    # Windows 系统高 DPI 适配
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception:

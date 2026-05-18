@@ -4,8 +4,8 @@ from config.constants import Config
 
 class ModernCheckbutton(tk.Frame):
     """
-    现代化高品质大尺寸自定义复选框。
-    利用 Canvas 精密重绘外边框与勾选对齐线，100% 杜绝原生平台样式差异。
+    大尺寸自定义复选框。
+    利用 Canvas 绘制外边框与勾选对齐线，保证平台样式一致。
     """
     def __init__(self, parent, text, var, command=None, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
@@ -42,8 +42,8 @@ class ModernCheckbutton(tk.Frame):
 
 class ModernScale(tk.Frame):
     """
-    现代化滑块参数调节器封装。
-    升级采用 Windows 原生圆滑细轨 ttk.Scale，并在右侧配有精致的实时淡蓝色数值高亮反馈。
+    滑块参数调节器封装。
+    采用 ttk.Scale 实现，并在右侧实时显示当前数值。
     """
     def __init__(self, parent, label, from_, to, var, resolution=1, command=None, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
@@ -61,7 +61,7 @@ class ModernScale(tk.Frame):
         self.val_lbl = tk.Label(header, text=self._format_value(var.get()), bg=bg_color, fg=Config.COLORS['primary'], font=Config.FONTS['en_main'])
         self.val_lbl.pack(side=tk.RIGHT)
         
-        # 使用 ttk.Scale 代替 tk.Scale 享受极细的高级灰色滑块轨道和扁平滑块
+        # 使用 ttk.Scale 以获得更好的滑块样式
         self.scale = ttk.Scale(
             self, 
             from_=from_, 
@@ -73,7 +73,7 @@ class ModernScale(tk.Frame):
         self.scale.pack(fill=tk.X, pady=(0, 10))
 
     def _format_value(self, val):
-        """ 优雅地格式化数值显示 """
+        """ 格式化数值显示 """
         try:
             f_val = float(val)
             if self.resolution >= 1:
@@ -85,7 +85,7 @@ class ModernScale(tk.Frame):
             return str(val)
 
     def _on_scale_move(self, val):
-        """ 实时滑动反馈，并更新数值标签与回调 """
+        """ 滑动时更新数值标签与回调 """
         self.val_lbl.config(text=self._format_value(val))
         if self.user_command:
             self.user_command(val)
@@ -93,9 +93,8 @@ class ModernScale(tk.Frame):
 
 class ColorSwatchRow(tk.Frame):
     """
-    现代化高品质色彩配置行。
-    左侧显示名称标签，右侧显示高度与统一按钮完全对齐的精致物理色彩框，
-    具有 Windows 原生内阴影立体感，支持拾色交互与联动。
+    色彩配置行。
+    左侧显示名称标签，右侧显示对齐的色彩框，支持拾色交互与联动。
     """
     def __init__(self, parent, text, attr, initial_color, on_click_callback, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
@@ -108,8 +107,8 @@ class ColorSwatchRow(tk.Frame):
         self.lbl = tk.Label(self, text=text, bg=bg_color, font=Config.FONTS['zh_normal'])
         self.lbl.pack(side=tk.LEFT, anchor=tk.W)
         
-        # 右侧色彩块，高宽从配置文件读取（默认 100x30），完美满足触控及大区域点击要求
-        # 引入 Windows 经典微内凹立体边缘，视觉极其逼真
+        # 右侧色彩块，其高度与宽度从配置文件中读取
+        # 具有微内凹立体边缘
         self.canvas = tk.Canvas(
             self, 
             width=Config.LAYOUT['color_swatch_w'], 
@@ -128,12 +127,12 @@ class ColorSwatchRow(tk.Frame):
         self.canvas.bind("<Leave>", self._on_leave)
         
     def _on_enter(self, event):
-        """ 鼠标悬停：色彩槽边框散发出精致的蓝色微光 """
+        """ 鼠标悬停时高亮色彩槽边框 """
         if self.canvas.cget("cursor") == "hand2":
             self.canvas.config(highlightbackground=Config.COLORS['primary'])
             
     def _on_leave(self, event):
-        """ 鼠标离开：还原边框为标准边框色 """
+        """ 鼠标离开时恢复标准边框色 """
         if self.canvas.cget("cursor") == "hand2":
             self.canvas.config(highlightbackground=Config.COLORS['border_enabled'])
         
@@ -142,7 +141,7 @@ class ColorSwatchRow(tk.Frame):
             self.on_click_callback(self.attr)
             
     def update_color(self, color):
-        """ 刷新色彩块的物理背景颜色 """
+        """ 刷新色彩块的背景颜色 """
         self.canvas.config(bg=color)
         
     def set_state(self, enabled):
