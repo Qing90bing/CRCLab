@@ -174,6 +174,16 @@ class Config:
         'draw_origin_offset': 600.0,     # SSAA 渲染的原点安全偏置
         'ssaa_factor': 2,                # SSAA 抗锯齿超采样因子
         'curve_segments': 40,            # 除法左侧贝塞尔曲线分段数
+        
+        # 自定义色彩块拾色按钮物理尺寸，调大以方便用户点击
+        'color_swatch_w': 80,           # 色彩拾色块物理宽度
+        'color_swatch_h': 30,            # 色彩拾色块物理高度
+        
+        # 导出成功提示卡弹窗物理参数，提供充足的留白与气派的现代化排版
+        'success_dialog_w': 740,         # 导出成功弹窗宽度
+        'success_dialog_h': 300,         # 导出成功弹窗高度
+        'success_dialog_pad': 30,        # 弹窗内边距 (Padding)
+        'success_icon_size': 64,         # 成功圆勾徽章的物理大小
     }
 
     # 默认业务参数配置表：程序启动时的初始状态
@@ -226,7 +236,7 @@ class Config:
         'side_title': ("SimSun", 16, "bold"),    # 侧边栏主标题字体
         'btn_small': ("SimSun", 9),              # 侧边栏常规小按钮字体
         'btn_large_bold': ("SimSun", 11, "bold"),# 侧边栏深蓝大按钮/动作大按钮字体
-        'zoom_btn': ("Arial", 12, "bold"),       # 顶部放大/缩小物理图标字体
-        'zoom_lbl': ("Times New Roman", 11, "bold"), # 顶部比例显示字体
+        'zoom_btn': ("Arial", 13, "bold"),       # 顶部放大/缩小物理图标字体
+        'zoom_lbl': ("Times New Roman", 12, "bold"),       # 顶部比例显示字体
         'fallback_families': ["times.ttf", "times", "arial.ttf", "arial", "simsun.ttc", "simsun"], # 渲染器安全回退字体族列表
     }

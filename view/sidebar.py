@@ -77,7 +77,7 @@ class SidebarPanel(tk.Frame):
         
         # 1. 原始二进制数据位输入
         tk.Label(parent, text=Config.UI_TEXT['data_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(5, 5))
-        self.data_entry = tk.Entry(parent, textvariable=self.app.data_var, font=Config.FONTS['en_main'])
+        self.data_entry = ttk.Entry(parent, textvariable=self.app.data_var, font=Config.FONTS['en_main'])
         self.data_entry.pack(fill=tk.X, pady=(0, Config.LAYOUT['entry_pady']), ipady=Config.LAYOUT['entry_ipady'])
         self.data_entry.bind("<Return>", lambda e: self.app.generate(auto_center=True))
 
@@ -85,7 +85,7 @@ class SidebarPanel(tk.Frame):
         tk.Label(parent, text=Config.UI_TEXT['poly_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(5, 5))
         pf = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
         pf.pack(fill=tk.X, pady=(0, 5))
-        self.poly_entry = tk.Entry(pf, textvariable=self.app.divisor_var, font=Config.FONTS['en_main'])
+        self.poly_entry = ttk.Entry(pf, textvariable=self.app.divisor_var, font=Config.FONTS['en_main'])
         self.poly_entry.pack(side=tk.LEFT, expand=True, fill=tk.X, ipady=Config.LAYOUT['entry_ipady'])
         self.poly_entry.bind("<Return>", lambda e: self.app.generate(auto_center=True))
         
@@ -131,8 +131,7 @@ class SidebarPanel(tk.Frame):
             self.scales.append(scale)
         
         # 参数一键恢复默认按钮
-        tk.Button(parent, text=Config.UI_TEXT['btn_reset_params'], command=self.app.reset_params, 
-                  font=Config.FONTS['btn_small'], bg=Config.COLORS['btn_default_bg'], pady=Config.LAYOUT['btn_ipady']).pack(fill=tk.X, pady=(5, Config.LAYOUT['section_pady']))
+        ttk.Button(parent, text=Config.UI_TEXT['btn_reset_params'], command=self.app.reset_params).pack(fill=tk.X, pady=(5, Config.LAYOUT['section_pady']))
 
     def _init_color_section(self):
         """ 初始化多维色彩配置项，并在底部渲染最为尊贵、大气的“导出图表”大按钮 """
@@ -161,14 +160,12 @@ class SidebarPanel(tk.Frame):
             self.color_rows[attr] = row
             
         # 恢复默认色彩按钮
-        tk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.app.reset_colors, 
-                  font=Config.FONTS['btn_small'], bg=Config.COLORS['btn_default_bg'], pady=Config.LAYOUT['btn_ipady']).pack(fill=tk.X, pady=(15, 20))
+        ttk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.app.reset_colors).pack(fill=tk.X, pady=(15, 20))
                   
         # 分割线及高亮“导出图表”尊贵按钮
         tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
-        tk.Button(parent, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
-                  font=Config.FONTS['btn_large_bold'], fg="white", bg=Config.COLORS['primary'], activebackground=Config.COLORS['primary_active'],
-                  activeforeground="white", pady=10).pack(fill=tk.X, pady=(15, 30))
+        ttk.Button(parent, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
+                   style='Action.TButton').pack(fill=tk.X, pady=(15, 30))
 
     def update_swatches(self):
         """ 响应色彩重置或重新选取，动态同步色彩块底色 """

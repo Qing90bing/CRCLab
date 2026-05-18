@@ -113,7 +113,7 @@ class ExportDialog:
         
         self._add_combo(parent, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
  
-        self.browse_btn = tk.Button(parent, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
+        self.browse_btn = ttk.Button(parent, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
         self.browse_btn.pack(fill=tk.X, pady=(5, 2))
         
         self.dir_lbl = tk.Label(
@@ -127,18 +127,19 @@ class ExportDialog:
         self.dir_lbl.pack(fill=tk.X, pady=(0, 8))
         
         # 3. 新增导出信息估算面板，展示宽度、高度与估算大小
-        self.info_group = tk.LabelFrame(
+        # 升级为优雅的 Windows 原生 ttk.LabelFrame
+        self.info_group = ttk.LabelFrame(
             parent, 
-            text=Config.UI_TEXT['export_info_group'], 
-            bg=Config.LAYOUT['export_ctrl_bg'], 
-            font=Config.FONTS['zh_bold'],
-            padx=12,
-            pady=10
+            text=Config.UI_TEXT['export_info_group']
         )
         self.info_group.pack(fill=tk.X, pady=(15, 10))
         
+        # 使用内嵌 Frame 确保 100% 兼容的内间距
+        info_inner = tk.Frame(self.info_group, bg=Config.LAYOUT['export_ctrl_bg'], padx=12, pady=10)
+        info_inner.pack(fill=tk.BOTH, expand=True)
+        
         self.width_lbl = tk.Label(
-            self.info_group, 
+            info_inner, 
             text=Config.UI_TEXT['export_width_placeholder'], 
             bg=Config.LAYOUT['export_ctrl_bg'], 
             font=Config.FONTS['zh_normal'],
@@ -147,7 +148,7 @@ class ExportDialog:
         self.width_lbl.pack(fill=tk.X, pady=2)
         
         self.height_lbl = tk.Label(
-            self.info_group, 
+            info_inner, 
             text=Config.UI_TEXT['export_height_placeholder'], 
             bg=Config.LAYOUT['export_ctrl_bg'], 
             font=Config.FONTS['zh_normal'],
@@ -156,7 +157,7 @@ class ExportDialog:
         self.height_lbl.pack(fill=tk.X, pady=2)
         
         self.size_lbl = tk.Label(
-            self.info_group, 
+            info_inner, 
             text=Config.UI_TEXT['export_size_placeholder'], 
             bg=Config.LAYOUT['export_ctrl_bg'], 
             font=Config.FONTS['zh_normal'],
@@ -168,29 +169,22 @@ class ExportDialog:
         btn_frame = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
         btn_frame.pack(fill=tk.X, pady=(10, 0))
         
-        # 取消按钮，采用扁平化高雅红配色
-        self.cancel_btn = tk.Button(
+        # 取消按钮，采用 Windows 原生圆角微立体 ttk.Button，手感极其细腻
+        self.cancel_btn = ttk.Button(
             btn_frame,
             text=Config.UI_TEXT['btn_cancel'],
-            bg=Config.COLORS['cancel_bg'],
-            fg="white",
-            relief=tk.FLAT,
-            font=Config.FONTS['zh_bold'],
             command=self.dlg.destroy
         )
-        self.cancel_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6), ipady=4)
+        self.cancel_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
         
-        # 开始导出按钮，采用扁平化翡翠绿配色
-        self.export_btn = tk.Button(
+        # 开始导出按钮，采用 Windows 原生重点高亮样式的 ttk.Button
+        self.export_btn = ttk.Button(
             btn_frame,
             text=Config.UI_TEXT['btn_start_export'],
-            bg=Config.COLORS['export_btn_bg'],
-            fg="white",
-            relief=tk.FLAT,
-            font=Config.FONTS['zh_bold'],
-            command=self.export_chart
+            command=self.export_chart,
+            style='Action.TButton'
         )
-        self.export_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(6, 0), ipady=4)
+        self.export_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(6, 0))
 
     def _setup_bindings(self):
         """ 绑定变量变化及窗口尺寸重构事件的实时监听 """
@@ -457,9 +451,8 @@ class SuccessDialog:
     """
     导出成功自定义精致提示框。
     
-    退回到最纯粹的 Windows/Tkinter 系统标准界面风格以保持软件全局高度一致。
-    提供“好的”与“打开当前导出目录”两个选项。
-    支持 Windows 资源管理器直接自动选中并高亮定位该已导出文件。
+    100% 采用 Windows 原生 ttk 控件重绘。
+    包含翡翠绿实心圆形白色勾号成功徽章、大字大描述排版、圆角只读路径框，以及等高的右对齐动作按钮。
     """
     def __init__(self, parent, out_path, export_dir):
         self.dlg = tk.Toplevel(parent)
@@ -467,42 +460,69 @@ class SuccessDialog:
         self.dlg.transient(parent)
         self.dlg.grab_set()
         
-        # 智能自适应显示尺寸计算，防止长路径折行溢出或显示不全
+        # 统一系统背景底色
+        self.dlg.configure(bg=Config.COLORS['main_bg'])
+        
+        # 从配置文件读取大尺寸高雅物理参数
+        w = Config.LAYOUT['success_dialog_w']
+        h = Config.LAYOUT['success_dialog_h']
+        pad = Config.LAYOUT['success_dialog_pad']
+        icon_sz = Config.LAYOUT['success_icon_size']
+        
+        # 智能居中物理坐标计算
         sw, sh = parent.winfo_screenwidth(), parent.winfo_screenheight()
-        
-        # 估算字数物理占用宽度，保底 420，最大 780 像素
-        char_w = 7.5
-        w = max(420, min(780, int(len(out_path) * char_w + 80)))
-        
-        # 估算折行情况并动态扩容高度，保底 160，最大 240 像素
-        estimated_lines = max(1, len(out_path) // (w // 8))
-        h = max(160, min(240, 140 + estimated_lines * 20))
-        
         self.dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         self.dlg.resizable(False, False)
         
-        # 标准系统样式提示文案，将折行宽度 wraplength 与窗口实际宽度 w 动态绑定
-        tk.Label(
-            self.dlg, 
-            text=f"图表已成功导出至：\n{out_path}", 
-            font=Config.FONTS['zh_normal'],
-            pady=15,
-            justify="center",
-            wraplength=w - 40
-        ).pack()
+        # 主体布局容器，提供充足的内边距，实现极佳的空灵呼吸留白感
+        main_frame = tk.Frame(self.dlg, bg=Config.COLORS['main_bg'], padx=pad, pady=pad)
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 按钮栏容器
-        btn_frame = tk.Frame(self.dlg)
-        btn_frame.pack(side=tk.BOTTOM, pady=15)
+        # 1. 优先布局底部按钮栏，确保物理高度绝不被压缩
+        btn_frame = tk.Frame(main_frame, bg=Config.COLORS['main_bg'])
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # 2. 其次布局顶部内容栏（徽章 + 描述）
+        top_bar = tk.Frame(main_frame, bg=Config.COLORS['main_bg'])
+        top_bar.pack(side=tk.TOP, fill=tk.X, expand=True)
+        
+        # 绘制高端的手绘现代翡翠绿打勾徽章 Canvas (Success Badge)
+        try:
+            icon_cv = tk.Canvas(top_bar, width=icon_sz, height=icon_sz, bg=Config.COLORS['main_bg'], highlightthickness=0)
+            icon_cv.pack(side=tk.LEFT, anchor="n", padx=(0, 16))
+            
+            # 画一个翡翠绿实心圆形 (#10b981)
+            icon_cv.create_oval(2, 2, icon_sz - 2, icon_sz - 2, fill="#10b981", outline="")
+            
+            # 画白色粗线条打勾，勾角采用圆润端点
+            icon_cv.create_line(icon_sz * 0.28, icon_sz * 0.5, icon_sz * 0.45, icon_sz * 0.68, fill="white", width=3, capstyle=tk.ROUND)
+            icon_cv.create_line(icon_sz * 0.45, icon_sz * 0.68, icon_sz * 0.72, icon_sz * 0.32, fill="white", width=3, capstyle=tk.ROUND)
+        except Exception:
+            pass
+            
+        # 大气的大字标题与二级描述排版区
+        txt_frame = tk.Frame(top_bar, bg=Config.COLORS['main_bg'])
+        txt_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        title_lbl = ttk.Label(txt_frame, text="导出成功！", font=Config.FONTS['side_title'], background=Config.COLORS['main_bg'])
+        title_lbl.pack(anchor="w", pady=(0, 4))
+        
+        desc_lbl = ttk.Label(txt_frame, text="您的文件已保存至本地：", font=Config.FONTS['zh_normal'], background=Config.COLORS['main_bg'], foreground="#64748b")
+        desc_lbl.pack(anchor="w")
+        
+        # 3. 部署高品位的“只读路径展示卡”，支持横向滚动与 Ctrl+C 复制，排版极其整洁！
+        path_entry = ttk.Entry(main_frame, font=Config.FONTS['combo'], justify="left")
+        path_entry.pack(fill=tk.X, pady=(12, 18))
+        
+        path_entry.insert(0, out_path)
+        path_entry.config(state="readonly")  # 只读框，完美规整，用户双击即可选定完整路径
         
         # “好的”标准系统确认按钮
-        tk.Button(
+        ttk.Button(
             btn_frame,
             text=" 好的 ",
-            font=Config.FONTS['btn_small'],
-            width=10,
             command=self.dlg.destroy
-        ).pack(side=tk.LEFT, padx=15)
+        ).pack(side=tk.RIGHT, padx=(12, 0))
         
         # “打开当前导出目录”标准系统按钮
         def open_dir():
@@ -517,9 +537,9 @@ class SuccessDialog:
                 except Exception:
                     pass
                     
-        tk.Button(
+        ttk.Button(
             btn_frame,
             text="打开当前导出目录",
-            font=Config.FONTS['btn_small'],
-            command=open_dir
-        ).pack(side=tk.RIGHT, padx=15)
+            command=open_dir,
+            style='Action.TButton'  # 使用高亮样式方便用户引导
+        ).pack(side=tk.RIGHT)

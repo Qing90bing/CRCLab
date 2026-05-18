@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from config.constants import Config
 
 class ModernCheckbutton(tk.Frame):
@@ -42,35 +43,59 @@ class ModernCheckbutton(tk.Frame):
 class ModernScale(tk.Frame):
     """
     现代化滑块参数调节器封装。
-    包含统一的说明标签与参数刻度样式控制。
+    升级采用 Windows 原生圆滑细轨 ttk.Scale，并在右侧配有精致的实时淡蓝色数值高亮反馈。
     """
     def __init__(self, parent, label, from_, to, var, resolution=1, command=None, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
         super().__init__(parent, bg=bg_color)
         
-        tk.Label(self, text=label, bg=bg_color, font=Config.FONTS['zh_normal']).pack(anchor=tk.W, pady=(5, 0))
+        self.var = var
+        self.resolution = resolution
+        self.user_command = command
         
-        self.scale = tk.Scale(
+        # 头部标签栏容器（左侧为中文参数名，右侧为实时更新的值）
+        header = tk.Frame(self, bg=bg_color)
+        header.pack(fill=tk.X, pady=(5, 2))
+        
+        tk.Label(header, text=label, bg=bg_color, font=Config.FONTS['zh_normal']).pack(side=tk.LEFT)
+        self.val_lbl = tk.Label(header, text=self._format_value(var.get()), bg=bg_color, fg=Config.COLORS['primary'], font=Config.FONTS['en_main'])
+        self.val_lbl.pack(side=tk.RIGHT)
+        
+        # 使用 ttk.Scale 代替 tk.Scale 享受极细的高级灰色滑块轨道和扁平滑块
+        self.scale = ttk.Scale(
             self, 
             from_=from_, 
             to=to, 
-            resolution=resolution, 
             orient=tk.HORIZONTAL, 
             variable=var, 
-            sliderlength=Config.LAYOUT['slider_len'], 
-            width=Config.LAYOUT['slider_thick'],
-            font=("Times New Roman", 10), 
-            bg=bg_color, 
-            highlightthickness=0, 
-            command=command
+            command=self._on_scale_move
         )
         self.scale.pack(fill=tk.X, pady=(0, 10))
+
+    def _format_value(self, val):
+        """ 优雅地格式化数值显示 """
+        try:
+            f_val = float(val)
+            if self.resolution >= 1:
+                return f"{int(round(f_val))}"
+            else:
+                # 针对 0.1 步长的小数保留 1 位小数
+                return f"{f_val:.1f}"
+        except Exception:
+            return str(val)
+
+    def _on_scale_move(self, val):
+        """ 实时滑动反馈，并更新数值标签与回调 """
+        self.val_lbl.config(text=self._format_value(val))
+        if self.user_command:
+            self.user_command(val)
 
 
 class ColorSwatchRow(tk.Frame):
     """
     现代化高品质色彩配置行。
-    左侧显示名称标签，右侧显示精美物理色彩框，支持高保真点击交互与启用/置灰联动控制。
+    左侧显示名称标签，右侧显示高度与统一按钮完全对齐的精致物理色彩框，
+    具有 Windows 原生内阴影立体感，支持拾色交互与联动。
     """
     def __init__(self, parent, text, attr, initial_color, on_click_callback, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
@@ -79,22 +104,38 @@ class ColorSwatchRow(tk.Frame):
         self.attr = attr
         self.on_click_callback = on_click_callback
         
+        # 左侧优雅标签
         self.lbl = tk.Label(self, text=text, bg=bg_color, font=Config.FONTS['zh_normal'])
-        self.lbl.pack(side=tk.LEFT)
+        self.lbl.pack(side=tk.LEFT, anchor=tk.W)
         
-        self.sz = Config.LAYOUT['check_size']
+        # 右侧色彩块，高宽从配置文件读取（默认 100x30），完美满足触控及大区域点击要求
+        # 引入 Windows 经典微内凹立体边缘，视觉极其逼真
         self.canvas = tk.Canvas(
             self, 
-            width=self.sz * 2.5, 
-            height=self.sz, 
+            width=Config.LAYOUT['color_swatch_w'], 
+            height=Config.LAYOUT['color_swatch_h'], 
             bg=initial_color, 
             highlightthickness=1, 
             highlightbackground=Config.COLORS['border_enabled'],
+            relief=tk.SUNKEN, 
+            bd=1,
             cursor="hand2"
         )
-        self.canvas.pack(side=tk.RIGHT)
+        self.canvas.pack(side=tk.RIGHT, anchor=tk.E)
         
         self.canvas.bind("<Button-1>", self._on_click)
+        self.canvas.bind("<Enter>", self._on_enter)
+        self.canvas.bind("<Leave>", self._on_leave)
+        
+    def _on_enter(self, event):
+        """ 鼠标悬停：色彩槽边框散发出精致的蓝色微光 """
+        if self.canvas.cget("cursor") == "hand2":
+            self.canvas.config(highlightbackground=Config.COLORS['primary'])
+            
+    def _on_leave(self, event):
+        """ 鼠标离开：还原边框为标准边框色 """
+        if self.canvas.cget("cursor") == "hand2":
+            self.canvas.config(highlightbackground=Config.COLORS['border_enabled'])
         
     def _on_click(self, event):
         if self.canvas.cget("cursor") == "hand2":

@@ -86,8 +86,28 @@ class CRCVisualizerApp:
 
     def _setup_styles(self):
         self.style = ttk.Style()
-        self.style.configure('TCombobox', padding=Config.LAYOUT['entry_ipady'])
+        try:
+            self.style.theme_use('vista')
+        except Exception:
+            pass
+            
+        # 像素级大一统高度栅格配置
+        # vista主题下通过精微Padding微调，使得Entry、Combobox和Button在物理高度上绝对像素级对齐！
+        self.style.configure('TEntry', padding=(10, 7))
+        self.style.configure('TCombobox', padding=(10, 6))
         self.style.configure('TCombobox', font=Config.FONTS['combo'])
+        
+        # 原生 Windows TButton 样式高度对齐，并显式指定 9pt 基准字号
+        self.style.configure('TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
+        
+        # 尊贵的高亮主动作按钮样式，使用与 TButton 相同的 9pt 字号（仅设为粗体），并显式绑定相同 padding，确保高度物理上绝对等高！
+        self.style.configure('Action.TButton', font=Config.FONTS['zh_bold'], padding=(10, 5))
+        
+        # 顶部悬浮工具栏按钮样式定制：
+        # 1. 文本按钮样式（适应屏幕、重置比例），解决点击区域过小、在高DPI下难以点按的问题
+        self.style.configure('Toolbutton', font=Config.FONTS['zh_normal'], padding=(12, 12))
+        # 2. 缩放符号按钮样式（-、+），使用专门的粗体大字号，使加减号更加醒目，并留出合适的防滑微间距
+        self.style.configure('Zoom.Toolbutton', font=Config.FONTS['zoom_btn'], padding=(10, 8))
 
     # --- UI 构建逻辑 ---
 
@@ -122,23 +142,35 @@ class CRCVisualizerApp:
 
     def _setup_canvas_toolbar(self, parent):
         """ 构建悬浮于画布上方的现代化浮动控制工具栏 """
-        tb = tk.Frame(parent, bg=Config.COLORS['toolbar_bg'], bd=1, relief=tk.RAISED, padx=10, pady=5)
-        tb.place(relx=0.5, y=30, anchor="n")
+        # 使用 1px 细微扁平边框代替传统 Raised 浮雕边框，实现极简现代的悬浮卡片感，并增加内边距
+        tb = tk.Frame(
+            parent, 
+            bg=Config.COLORS['toolbar_bg'], 
+            bd=0, 
+            highlightthickness=1, 
+            highlightbackground=Config.COLORS['border_enabled'], 
+            padx=16, 
+            pady=8
+        )
+        tb.place(relx=0.5, y=35, anchor="n")
         
-        tk.Button(tb, text=" - ", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']), font=Config.FONTS['zoom_btn'], 
-                  bg=Config.COLORS['zoom_btn_bg'], relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
+        # 放大/缩小按钮及百分比标签，使用专门定义的 Zoom.Toolbutton 提升易点按度，并使用更美观饱满的全角加减号
+        ttk.Button(tb, text="－", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']), 
+                   style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
         self.zoom_lbl = tk.Label(tb, text="100%", font=Config.FONTS['zoom_lbl'], 
                                  bg=Config.COLORS['toolbar_bg'], width=6)
-        self.zoom_lbl.pack(side=tk.LEFT, padx=5)
-        tk.Button(tb, text=" + ", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_in_factor']), font=Config.FONTS['zoom_btn'], 
-                  bg=Config.COLORS['zoom_btn_bg'], relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
+        self.zoom_lbl.pack(side=tk.LEFT, padx=4)
+        ttk.Button(tb, text="＋", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_in_factor']), 
+                   style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
         
-        tk.Frame(tb, width=1, bg=Config.COLORS['toolbar_divider'], height=20).pack(side=tk.LEFT, padx=10)
+        # 垂直分割线，微调高度及外边距以呼应整体增高的工具栏
+        tk.Frame(tb, width=1, bg=Config.COLORS['toolbar_divider'], height=24).pack(side=tk.LEFT, padx=14)
         
-        tk.Button(tb, text=Config.UI_TEXT['btn_fit'], command=self.center_view, 
-                  font=Config.FONTS['btn_small'], bg=Config.COLORS['toolbar_bg'], relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
-        tk.Button(tb, text=Config.UI_TEXT['btn_reset_view'], command=self.reset_view, 
-                  font=Config.FONTS['btn_small'], bg=Config.COLORS['toolbar_bg'], relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
+        # 适应屏幕与重置比例按钮，使用大尺寸扁平 Toolbutton，带给用户更尊贵与轻松的点击质感
+        ttk.Button(tb, text=Config.UI_TEXT['btn_fit'], command=self.center_view, 
+                   style='Toolbutton').pack(side=tk.LEFT, padx=4)
+        ttk.Button(tb, text=Config.UI_TEXT['btn_reset_view'], command=self.reset_view, 
+                   style='Toolbutton').pack(side=tk.LEFT, padx=4)
 
     # --- 核心渲染驱动与防抖管道 ---
 
