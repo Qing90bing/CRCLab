@@ -147,6 +147,13 @@ class ExportDialog:
         # 弹性推力，使按钮强对齐底部
         tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg']).pack(fill=tk.BOTH, expand=True)
 
+        # 进度条专属动画容器，高度固定为 6 像素，外加边距，绝不引起界面整体抖动
+        self.progress_container = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'], height=18)
+        self.progress_container.pack(fill=tk.X, pady=(8, 4))
+        self.progress_container.pack_propagate(False)
+        
+        self.progress = ttk.Progressbar(self.progress_container, orient=tk.HORIZONTAL, mode='indeterminate')
+
         btn_frame = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
         btn_frame.pack(fill=tk.X, pady=(10, 16))
         
@@ -300,22 +307,75 @@ class ExportDialog:
         if d:
             self.custom_dir_var.set(d)
 
+    def _set_widgets_state(self, state):
+        """ 统一设置所有表单控件与动作按钮的启用/禁用状态，防范并发重入与误操作 """
+        self.export_btn.config(state=state)
+        # 禁用或启用底部的取消按钮
+        for child in self.export_btn.master.winfo_children():
+            if isinstance(child, ttk.Button):
+                child.config(state=state)
+        
+        # 禁用或启用其他配置下拉组件
+        self.fmt_combo.config(state=state)
+        self.color_combo.config(state=state)
+        
+        is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
+        self.quality_combo.config(state=state if not is_vector else tk.DISABLED)
+        self.dpi_combo.config(state=state if not is_vector else tk.DISABLED)
+        
+        is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
+        self.browse_btn.config(state=state if is_custom else tk.DISABLED)
+
+    def _on_export_success(self, out_path, export_dir):
+        """ 导出成功的主线程回调 """
+        self.progress.stop()
+        self.progress.pack_forget()
+        self._set_widgets_state(tk.NORMAL)
+        SuccessDialog(self.dlg, out_path, export_dir)
+
+    def _on_export_failure(self, e):
+        """ 导出失败的主线程回调 """
+        self.progress.stop()
+        self.progress.pack_forget()
+        self._set_widgets_state(tk.NORMAL)
+        self._show_error_dialog(e)
+
     def export_chart(self):
-        """ 调度 Exporter 执行文件物理写入，并弹出 SuccessDialog """
-        try:
-            out_path, export_dir = Exporter.export(
-                self.app,
-                self.fmt_var.get(),
-                self.border_var.get(),
-                self.color_var.get(),
-                self.quality_var.get(),
-                self.dpi_var.get(),
-                self.dir_mode_var.get(),
-                self.custom_dir_var.get()
-            )
-            SuccessDialog(self.dlg, out_path, export_dir)
-        except Exception as e:
-            self._show_error_dialog(e)
+        """ 调度 Exporter 后台线程执行文件物理写入，彻底避免 UI 假死与并发重入 """
+        import threading
+        
+        # 1. 立即锁定 UI，展示进度条并启动不确定滑动动画，防止并发点击导致 OOM
+        self._set_widgets_state(tk.DISABLED)
+        self.progress.pack(fill=tk.BOTH, expand=True)
+        self.progress.start(10)
+        
+        # 2. 收集渲染所需变量参数
+        fmt = self.fmt_var.get()
+        show_border = self.border_var.get()
+        color_mode = self.color_var.get()
+        quality = self.quality_var.get()
+        dpi = self.dpi_var.get()
+        dir_mode = self.dir_mode_var.get()
+        custom_dir = self.custom_dir_var.get()
+        
+        # 3. 构建并启动异步后台守护线程
+        def async_worker():
+            try:
+                out_path, export_dir = Exporter.export(
+                    self.app,
+                    fmt,
+                    show_border,
+                    color_mode,
+                    quality,
+                    dpi,
+                    dir_mode,
+                    custom_dir
+                )
+                self.dlg.after(0, lambda: self._on_export_success(out_path, export_dir))
+            except Exception as e:
+                self.dlg.after(0, lambda: self._on_export_failure(e))
+                
+        threading.Thread(target=async_worker, daemon=True).start()
 
     def _show_error_dialog(self, e):
         """ 格式化错误反馈 """

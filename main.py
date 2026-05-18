@@ -178,7 +178,7 @@ class CRCVisualizerApp:
 
     # --- 核心渲染驱动与防抖管道 ---
 
-    def generate(self, auto_center=False, force_rebuild=True):
+    def generate(self, auto_center=False):
         """ 图像生成主入口，包含防抖处理以合并高频触发事件 """
         if getattr(self, '_render_pending', False):
             self._next_auto_center = auto_center
@@ -223,7 +223,6 @@ class CRCVisualizerApp:
         img = self.renderer.render(data, dividend, divisor, q, rows, ctx)
         
         # 4. 在画布上渲染图像并更新滚动范围
-        from PIL import ImageTk
         self.photo_img = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
         
@@ -278,12 +277,12 @@ class CRCVisualizerApp:
         if Config.LAYOUT['zoom_min'] <= new_scale <= Config.LAYOUT['zoom_max']:
             self.view_scale = new_scale
             self.update_zoom_display()
-            self.generate(auto_center=False, force_rebuild=False)
+            self.generate(auto_center=False)
 
     def on_mousewheel(self, event):
         self.view_scale = max(Config.LAYOUT['zoom_min'], min(Config.LAYOUT['zoom_mousewheel_max'], getattr(self, 'view_scale', 1.0) * (Config.LAYOUT['zoom_in_factor'] if event.delta > 0 else Config.LAYOUT['zoom_out_factor'])))
         self.update_zoom_display()
-        self.generate(auto_center=False, force_rebuild=False)
+        self.generate(auto_center=False)
 
     def update_zoom_display(self):
         if hasattr(self, 'zoom_lbl'):
@@ -302,7 +301,7 @@ class CRCVisualizerApp:
     def reset_view(self):
         self.view_scale = 1.0
         self.update_zoom_display()
-        self.generate(True, force_rebuild=False)
+        self.generate(auto_center=True)
 
     def start_pan(self, event):
         self.canvas.scan_mark(event.x, event.y)
