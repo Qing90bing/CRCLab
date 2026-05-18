@@ -28,6 +28,58 @@ class CanvasRenderer:
                 continue
         return ImageFont.load_default()
 
+    def _estimate_bounds(self, ctx, L, rows):
+        """
+        根据公式的排版数据，动态估算其几何边界，计算出最小安全画布尺寸和最佳原点偏移量。
+        基于高内聚低耦合原则，通过 L 参数共享计算所需排版尺寸，避免参数冗余。
+        """
+        grid_base = L['grid_base']
+        cell_w = L['cell_w']
+        cell_h = L['cell_h']
+        pad_cells = L['pad_cells']
+        dividend_len = L['dividend_len']
+        divisor_len = L['divisor_len']
+        
+        # 1. 计算除数与被除数中点及横线起点
+        divisor_end_col = divisor_len - 1
+        dividend_start_col = pad_cells
+        mid_col = (divisor_end_col + dividend_start_col) / 2
+        mid_x = mid_col * cell_w + cell_w / 2
+        
+        visual_balance_offset = abs(ctx['curve_span_left'] * grid_base) / 2
+        line_left = mid_x + visual_balance_offset + ctx['curve_span_right'] * grid_base
+        
+        # 2. 估算贝塞尔曲线最左端位置
+        p0x = line_left + grid_base * ctx['curve_span_left']
+        
+        # 3. 估算最右端横线终点与数据终点
+        div_last_x = (pad_cells + dividend_len - 1) * cell_w + cell_w / 2
+        line_right = div_last_x + cell_w / 2 - grid_base * 0.15 + ctx['ext_right'] * grid_base
+        
+        # 4. 计算左右几何安全边界（留出 0.5 个 grid_base 作为安全余量）
+        left_bound = min(0.0, p0x) - grid_base * 0.5
+        right_bound = max(line_right, div_last_x + cell_w / 2) + grid_base * 0.5
+        
+        # 5. 动态计算 X 轴偏移量 ox，确保不为负值造成左侧截断
+        ox = -left_bound if left_bound < 0 else grid_base * 0.5
+        w_temp = int(ox + right_bound) + 10
+        
+        # 6. 估算垂直方向的高度边界
+        line_y = cell_h * 1.1
+        curr_y_calc = line_y + cell_h * 1.1
+        
+        for row in rows:
+            if row['type'] == 'line':
+                curr_y_calc += cell_h * 0.2
+            else:
+                curr_y_calc += cell_h
+                
+        bottom_bound = curr_y_calc + cell_h * 0.5
+        oy = cell_h * 0.5
+        h_temp = int(oy + bottom_bound) + 10
+        
+        return ox, oy, max(10, w_temp), max(10, h_temp)
+
     def _render_raw_formula(self, data, dividend, divisor, q, rows, ctx_ssaa, ssaa_factor):
         """
         在超采样的临时画布上绘制公式并执行 getbbox() 裁剪与缩放。
@@ -35,16 +87,12 @@ class CanvasRenderer:
         将超采样绘制与最终的背景填充及边框绘制进行步骤解耦，以实现更好的模块内聚。
         """
         L = self._calculate_layout(ctx_ssaa, dividend, divisor)
-        s = L['s']
         
-        # 配置临时画布尺寸，以减少内存占用与扫描开销
-        w_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
-        h_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
+        # 1. 动态估算画布大小及原点偏移，避免固定大画布的内存开销与裁剪截断风险
+        ox, oy, w_temp, h_temp = self._estimate_bounds(ctx_ssaa, L, rows)
+        
         img_temp = Image.new("RGBA", (w_temp, h_temp), (0, 0, 0, 0))
         draw_temp = ImageDraw.Draw(img_temp)
-        
-        ox = Config.LAYOUT['draw_origin_offset'] * s
-        oy = Config.LAYOUT['draw_origin_offset'] * s  # 设置绘图原点偏移，避免内容截断
         
         self._draw_quotient(draw_temp, q, L, ctx_ssaa, ox, oy)
         line_y = self._draw_header_elements(draw_temp, dividend, L, ctx_ssaa, ox, oy)
@@ -62,7 +110,8 @@ class CanvasRenderer:
         w_real = int((x1 - x0) / ssaa_factor)
         h_real = int((y1 - y0) / ssaa_factor)
         if w_real > 0 and h_real > 0:
-            img_formula = img_formula.resize((w_real, h_real), Image.Resampling.LANCZOS)
+            if ssaa_factor > 1:
+                img_formula = img_formula.resize((w_real, h_real), Image.Resampling.LANCZOS)
             
         return img_formula
 
@@ -74,7 +123,8 @@ class CanvasRenderer:
         2. 裁剪出有效区域并利用 Lanczos 滤波器缩放至物理尺寸以平滑线条；
         3. 拼接到带边距的白色背景纸张中央，并可选择绘制外边框。
         """
-        ssaa_factor = Config.LAYOUT['ssaa_factor']
+        # 如果是预览模式，自动降级 ssaa_factor 为 1，省去超采样及 resize 开销
+        ssaa_factor = Config.LAYOUT['ssaa_factor'] if not ctx.get('is_preview', True) else 1
         ctx_ssaa = ctx.copy()
         ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
         
@@ -149,7 +199,7 @@ class CanvasRenderer:
         
         # 计算横线右侧终点
         div_last_x = (L['pad_cells'] + L['dividend_len'] - 1) * L['cell_w'] + L['cell_w']/2
-        line_right = div_last_x + L['grid_base'] * 0.6 + ctx['ext_right'] * L['grid_base']
+        line_right = div_last_x + L['cell_w'] / 2 - L['grid_base'] * 0.15 + ctx['ext_right'] * L['grid_base']
         
         # 绝对定位坐标
         lx0 = ox + line_left

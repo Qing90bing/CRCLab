@@ -180,10 +180,6 @@ class CRCVisualizerApp:
 
     def generate(self, auto_center=False, force_rebuild=True):
         """ 图像生成主入口，包含防抖处理以合并高频触发事件 """
-        if not force_rebuild:
-            self._actual_generate(auto_center, force_rebuild=False)
-            return
-
         if getattr(self, '_render_pending', False):
             self._next_auto_center = auto_center
             return
@@ -193,14 +189,14 @@ class CRCVisualizerApp:
         
         def run_generation():
             try:
-                self._actual_generate(self._next_auto_center, force_rebuild=True)
+                self._actual_generate(self._next_auto_center)
             finally:
                 self._render_pending = False
                 
         self.root.after(Config.LAYOUT['render_debounce_ms'], run_generation)
 
-    def _actual_generate(self, auto_center=False, force_rebuild=True):
-        """ 渲染执行逻辑，通过基准缓存图解耦缩放计算与排版绘制 """
+    def _actual_generate(self, auto_center=False):
+        """ 渲染执行逻辑，以当前实际的缩放比例 view_scale 进行绝对高清晰的矢量级内存重绘 """
         data = self.data_var.get().strip()
         divisor = self.divisor_var.get().strip()
         
@@ -217,24 +213,17 @@ class CRCVisualizerApp:
             messagebox.showwarning(Config.MESSAGES['warning_title_algo'], Config.MESSAGES['warning_poly_len_min_2'])
             return
 
-        # 1. 在参数数据变化或缓存未初始化时，重新进行内存排版绘制
-        if force_rebuild or not getattr(self, 'base_image', None):
-            q, rows, dividend = self.engine.calculate(data, divisor)
-            ctx = self._get_render_context()
-            ctx['view_scale'] = 1.0  # 基础缓存图的渲染物理原尺寸固定为 1.0
-            self.base_image = self.renderer.render(data, dividend, divisor, q, rows, ctx)
-
-        # 2. 根据当前缩放比例调整缓存图像尺寸
-        vs = getattr(self, 'view_scale', 1.0)
-        from PIL import Image, ImageTk # 延迟导入，减少主线程加载负担
-        if abs(vs - 1.0) > 1e-4:
-            tw = max(1, int(self.base_image.width * vs))
-            th = max(1, int(self.base_image.height * vs))
-            img = self.base_image.resize((tw, th), Image.Resampling.BILINEAR)
-        else:
-            img = self.base_image
+        # 1. 运行二进制 CRC 算法计算引擎
+        q, rows, dividend = self.engine.calculate(data, divisor)
         
-        # 3. 在画布上渲染图像并更新滚动范围
+        # 2. 收集排版环境字典（此时已包含当前真实的 view_scale 缩放参数）
+        ctx = self._get_render_context()
+        
+        # 3. 委托 CanvasRenderer 以当前真实尺寸进行百分之百清晰的矢量渲染，彻底消灭位图拉伸模糊
+        img = self.renderer.render(data, dividend, divisor, q, rows, ctx)
+        
+        # 4. 在画布上渲染图像并更新滚动范围
+        from PIL import ImageTk
         self.photo_img = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
         
