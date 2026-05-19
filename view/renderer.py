@@ -206,30 +206,41 @@ class CanvasRenderer:
         ly = oy + line_y
         lx1 = ox + line_right
         
-        # 1. 绘制主横线
-        draw.line([(lx0, ly), (lx1, ly)], fill=ctx['line_color'], width=L['line_w'])
+        # 连续绘制左侧贝塞尔弧线和主横线（通过合并为单条折线，并利用 joint="round" 消除粗线时的交界接头台阶与错位问题）
+        pts = self._get_bezier_curve_pts(lx0, ly, L, ctx)
+        pts.append((lx1, ly))
         
-        # 2. 绘制左侧贝塞尔弧线
-        self._draw_bezier_curve(draw, lx0, ly, L, ctx)
+        draw.line(pts, fill=ctx['line_color'], width=L['line_w'], joint="round")
+        
+        # 对物理位图渲染补充内部圆角盖，以彻底填补 Pillow 在大线宽下多段线绘制的接头断裂缺陷，同时保留首尾两端的直角端盖
+        actual_draw = draw.real_draw if hasattr(draw, 'real_draw') else draw
+        if not hasattr(draw, 'commands'):  # 仅针对原生 PIL 画布执行物理圆盖修补，不污染矢量拦截器（SVG、EMF 已由矢量引擎原生完美平滑对接）
+            r = L['line_w'] / 2.0
+            for pt in pts[1:-1]:
+                x, y = pt
+                actual_draw.ellipse([x - r, y - r, x + r, y + r], fill=ctx['line_color'])
+                
         return line_y
 
-    def _draw_bezier_curve(self, draw, lx0, ly, L, ctx):
-        """ 绘制平滑除法贝塞尔曲线 """
+    def _get_bezier_curve_pts(self, lx0, ly, L, ctx):
+        """ 计算平滑除法贝塞尔曲线的采样点序列 """
         p3x, p3y = lx0, ly
         p0x = lx0 + L['grid_base'] * ctx['curve_span_left']
         p0y = (ly + L['cell_h'] * 0.1) + L['cell_h'] * 0.8
         p1x, p1y = lx0 - L['grid_base'] * 0.2, p0y - L['cell_h'] * 0.2
-        p2x, p2y = lx0 + L['grid_base'] * 0.1, ly + L['cell_h'] * 0.3
+        # 微调 p2y 使曲线顶部切线更平缓地切入水平线，增加大线宽下的融合圆滑度
+        p2x, p2y = lx0 + L['grid_base'] * 0.1, ly + L['cell_h'] * 0.15
         
         pts = []
         segments = Config.LAYOUT['curve_segments']
-        for i in range(segments + 1):
-            t = i / float(segments)
+        # 为了防范极其粗的线宽在密集点下产生像素伪影与毛刺边缘，将实际采样点数限制在 30 以内
+        actual_segments = min(30, segments)
+        for i in range(actual_segments + 1):
+            t = i / float(actual_segments)
             x = (1-t)**3 * p0x + 3*((1-t)**2)*t * p1x + 3*(1-t)*(t**2) * p2x + (t**3) * p3x
             y = (1-t)**3 * p0y + 3*((1-t)**2)*t * p1y + 3*(1-t)*(t**2) * p2y + (t**3) * p3y
             pts.append((x, y))
-            
-        draw.line(pts, fill=ctx['line_color'], width=L['line_w'], joint="round")
+        return pts
 
     def _draw_operands(self, draw, data, dividend, divisor, line_y, L, ctx, ox, oy):
         """ 绘制除数、被除数及灰色补零标记背景块 """
