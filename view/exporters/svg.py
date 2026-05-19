@@ -93,14 +93,12 @@ class SVGExporter(BaseExporter):
         L = renderer._calculate_layout(ctx_ssaa, dividend, divisor)
         s = L['s']
         
-        w_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
-        h_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
+        # 1. 动态估算画布大小及原点偏移，避免固定大画布的内存开销与裁剪扫描开销
+        ox, oy, w_temp, h_temp = renderer._estimate_bounds(ctx_ssaa, L, rows)
         img_temp = Image.new("RGBA", (w_temp, h_temp), (0, 0, 0, 0))
         draw_real = ImageDraw.Draw(img_temp)
         draw_temp = SVGInterceptDraw(draw_real)
         
-        ox = Config.LAYOUT['draw_origin_offset'] * s
-        oy = Config.LAYOUT['draw_origin_offset'] * s
         
         # 2. 执行几何绘制指令
         renderer._draw_quotient(draw_temp, q, L, ctx_ssaa, ox, oy)

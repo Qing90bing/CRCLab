@@ -26,7 +26,7 @@ class BitmapExporter(BaseExporter):
         
         # 1. 委托渲染器生成基础 Pillow 图像
         img = app.renderer.render(data, dividend, divisor, q, rows, ctx)
-        save_fmt = "JPEG" if out_path.endswith(".jpg") else "PNG"
+        save_fmt = "JPEG" if out_path.lower().endswith((".jpg", ".jpeg")) else "PNG"
         img = BitmapExporter._apply_color_mode(img, color_mode, save_fmt)
             
         img.save(out_path, format=save_fmt, dpi=(dpi_val, dpi_val))
@@ -34,27 +34,27 @@ class BitmapExporter(BaseExporter):
     @staticmethod
     def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
         """
-        在后台内存中模拟物理渲染与流写入，以极高精确度精算预估位图格式的文件字节数。
+        高精度物理重绘估算，直接采用真实目标分辨率进行内存仿真渲染，实现 100% 完美的预估文件大小。
         """
         multiplier = kwargs.get('multiplier', 1)
         dpi_val = kwargs.get('dpi_val', 96)
         fmt = kwargs.get('fmt', 'png')
         
-        ctx_calc = ctx.copy()
-        ctx_calc['view_scale'] = 1.0 * multiplier
-        ctx_calc['show_border'] = show_border
-        ctx_calc['is_preview'] = False
+        # 1. 直接以目标倍率渲染真实的图像
+        ctx_real = ctx.copy()
+        ctx_real['view_scale'] = 1.0 * multiplier
+        ctx_real['show_border'] = show_border
+        ctx_real['is_preview'] = False
         
-        # 1. 精密绘制高分辨率内存公式
-        img_calc = app.renderer.render(data, dividend, divisor, q, rows, ctx_calc)
-        save_fmt = "JPEG" if fmt == "jpg" else "PNG"
-        img_calc = BitmapExporter._apply_color_mode(img_calc, color_mode, save_fmt)
-            
-        # 2. 模拟二进制写入内存流，从而精准获取压缩编码后的物理字节大小
-        bio_precise = io.BytesIO()
-        img_calc.save(bio_precise, format=save_fmt, dpi=(dpi_val, dpi_val))
+        img_real = app.renderer.render(data, dividend, divisor, q, rows, ctx_real)
+        save_fmt = "JPEG" if fmt.lower() in ("jpg", "jpeg") else "PNG"
+        img_real = BitmapExporter._apply_color_mode(img_real, color_mode, save_fmt)
         
-        size_kb = len(bio_precise.getvalue()) / 1024.0
+        # 2. 模拟真实保存的二进制写入，获取 100% 精确的物理字节大小
+        bio = io.BytesIO()
+        img_real.save(bio, format=save_fmt, dpi=(dpi_val, dpi_val))
+        size_kb = len(bio.getvalue()) / 1024.0
+        
         return f"{size_kb:.1f} KB"
 
     @staticmethod

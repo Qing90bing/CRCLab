@@ -17,19 +17,20 @@ class Exporter:
         """
         opt_q = Config.EXPORT_OPTIONS['qualities']
         multiplier = {
-            opt_q[0]: 1, opt_q[1]: 1, opt_q[2]: 2,
-            opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
+            opt_q[0]: 1, opt_q[1]: 2,
+            opt_q[2]: 3, opt_q[3]: 4
         }[quality_name]
 
         # 1. 物理导出结果存储目录初始化
         if dir_mode == Config.EXPORT_OPTIONS['dir_modes'][0]:
             export_dir = os.path.join(os.getcwd(), "导出结果")
+            os.makedirs(export_dir, exist_ok=True)
         else:
             export_dir = custom_dir
-
-        if not export_dir:
-            raise ValueError(Config.MESSAGES['warning_custom_dir_empty'])
-        os.makedirs(export_dir, exist_ok=True)
+            if not export_dir:
+                raise ValueError(Config.MESSAGES['warning_custom_dir_empty'])
+            if not os.path.exists(export_dir) or not os.path.isdir(export_dir):
+                raise FileNotFoundError(f"指定的自定义导出目录不存在或无效：{export_dir}")
         
         out_path = os.path.join(export_dir, f"crc_export.{fmt}")
 

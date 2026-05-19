@@ -240,7 +240,7 @@ class EMFExporter(BaseExporter):
     @staticmethod
     def draw_to_emf(app, hdc, data, dividend, divisor, q, rows, ctx):
         """
-        核心物理转换：计算坐标原点安全偏置并触发代理将 CanvasRenderer 命令分发到 GDI。
+        核心物理转换：计算坐标原点安全偏置并触发代理将 CanvasRenderer 命令分发 to GDI。
         """
         ssaa_factor = Config.LAYOUT['ssaa_factor']
         ctx_ssaa = ctx.copy()
@@ -249,8 +249,9 @@ class EMFExporter(BaseExporter):
         # 1. 物理计算与拦截器初始化，用于获取裁剪用 bounding box
         renderer = app.renderer
         L = renderer._calculate_layout(ctx_ssaa, dividend, divisor)
-        s = L['s']
-        bbox = EMFExporter._calc_temp_bbox(renderer, q, dividend, divisor, rows, ctx_ssaa, L, s)
+        ox, oy, w_temp, h_temp = renderer._estimate_bounds(ctx_ssaa, L, rows)
+        
+        bbox = EMFExporter._calc_temp_bbox(renderer, q, dividend, divisor, rows, ctx_ssaa, L, ox, oy, w_temp, h_temp)
         if not bbox:
             return
             
@@ -259,18 +260,13 @@ class EMFExporter(BaseExporter):
         
         # 2. 调用 GDI 拦截器进行矢量图元物理绘制
         draw_proxy = EMFInterceptDraw(hdc, x0, y0, ssaa_factor, p)
-        EMFExporter._draw_emf_elements(renderer, draw_proxy, q, dividend, divisor, rows, ctx_ssaa, L, s, x0, y0, x1, y1, p, ssaa_factor)
+        EMFExporter._draw_emf_elements(renderer, draw_proxy, q, dividend, divisor, rows, ctx_ssaa, L, ox, oy, x0, y0, x1, y1, p, ssaa_factor)
 
     @staticmethod
-    def _calc_temp_bbox(renderer, q, dividend, divisor, rows, ctx_ssaa, L, s):
+    def _calc_temp_bbox(renderer, q, dividend, divisor, rows, ctx_ssaa, L, ox, oy, w_temp, h_temp):
         """ 在超采样的临时画布上绘制公式并获取其 getbbox 坐标 """
-        w_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
-        h_temp = int(Config.LAYOUT['temp_canvas_base'] * max(1.0, s))
         img_temp = Image.new("RGBA", (w_temp, h_temp), (0, 0, 0, 0))
         draw_real = ImageDraw.Draw(img_temp)
-        
-        ox = Config.LAYOUT['draw_origin_offset'] * s
-        oy = Config.LAYOUT['draw_origin_offset'] * s
         
         renderer._draw_quotient(draw_real, q, L, ctx_ssaa, ox, oy)
         line_y = renderer._draw_header_elements(draw_real, dividend, L, ctx_ssaa, ox, oy)
@@ -280,11 +276,8 @@ class EMFExporter(BaseExporter):
         return img_temp.getbbox()
 
     @staticmethod
-    def _draw_emf_elements(renderer, draw_proxy, q, dividend, divisor, rows, ctx_ssaa, L, s, x0, y0, x1, y1, p, ssaa_factor):
+    def _draw_emf_elements(renderer, draw_proxy, q, dividend, divisor, rows, ctx_ssaa, L, ox, oy, x0, y0, x1, y1, p, ssaa_factor):
         """ 利用拦截器执行具体 GDI 指令输出 """
-        ox = Config.LAYOUT['draw_origin_offset'] * s
-        oy = Config.LAYOUT['draw_origin_offset'] * s
-        
         # 绘制背景底板（若为透明底则跳过绘制）
         sheet_bg_color = ctx_ssaa.get('sheet_bg_color', '#ffffff')
         if sheet_bg_color not in ("transparent", "none"):

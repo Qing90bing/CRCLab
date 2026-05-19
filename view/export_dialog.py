@@ -4,31 +4,40 @@ import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 from PIL import Image, ImageTk
 from config.constants import Config
-from view.widgets import ModernCheckbutton
-from view.exporter import Exporter
 from view.success_dialog import SuccessDialog
+from view.exporter import Exporter
+from view.export_preview import ExportPreview
+from view.export_form import ExportForm
 
 class ExportDialog:
     """
     导出图表配置与预览弹出对话框。
     
-    统一协调导出选项配置、画布异步/防抖预览更新，并代理调用 Exporter 服务进行物理写入。
+    高级协调类 (Coordinator)。统一协调左侧预览 (`ExportPreview`) 和右侧表单选项 (`ExportForm`)。
+    通过事件绑定、状态跟踪、防抖计算及物理导出完成完整的导出生命周期管理。
     """
     def __init__(self, app):
         """
         初始化导出对话框。
+        :param app: 主应用程序 CRCVisualizerApp 实例。
         """
         self.app = app
         self._calc_timer = None
         self.dlg = tk.Toplevel(app.root)
         self.dlg.title(Config.UI_TEXT['export_title'])
         self.dlg.transient(app.root)
+        self.dlg.grab_set()  # 设置模态对话框，防范多窗体并发
         
+        # 1. 窗口几何位置自适应
         self._setup_geometry()
+        
+        # 2. 构建左右双栏并挂载精细组件
         self._build_layout()
+        
+        # 3. 联动状态追踪与事件绑定
         self._setup_bindings()
         
-        # 首次同步与延迟定位居中
+        # 4. 首次同步与延迟定位居中
         self._update_preview()
         self.dlg.after(100, self._update_preview)
 
@@ -42,181 +51,128 @@ class ExportDialog:
 
     def _build_layout(self):
         """ 构建导出界面的左右双栏框架 """
-        self.left_frame = tk.Frame(self.dlg, bg=Config.LAYOUT['export_preview_bg'], padx=10, pady=10)
-        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # 挂载左侧自适应预览画布组件
+        self.preview_panel = ExportPreview(self.dlg, self.app)
+        self.preview_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        self.right_frame = tk.Frame(
-            self.dlg, 
-            bg=Config.LAYOUT['export_ctrl_bg'], 
-            padx=16, 
-            pady=16, 
-            width=Config.LAYOUT['export_side_width']
-        )
-        self.right_frame.pack(side=tk.RIGHT, fill=tk.Y)
-        self.right_frame.pack_propagate(False)
-        
-        self._init_preview_frame(self.left_frame)
-        self._init_control_frame(self.right_frame)
-
-    def _init_preview_frame(self, parent):
-        """ 初始化左侧实时重绘预览面板 """
-        tk.Label(
-            parent, 
-            text=Config.UI_TEXT['export_preview'], 
-            bg=Config.LAYOUT['export_preview_bg'], 
-            font=Config.FONTS['zh_bold']
-        ).pack(anchor=tk.W, pady=(0, 8))
-        
-        self.preview_canvas = tk.Canvas(
-            parent, 
-            bg=Config.COLORS['preview_canvas_bg'], 
-            highlightthickness=1, 
-            highlightbackground=Config.COLORS['preview_canvas_border']
-        )
-        self.preview_canvas.pack(fill=tk.BOTH, expand=True)
-
-    def _init_control_frame(self, parent):
-        """ 构建右侧的参数表单与动作按钮 """
-        tk.Label(
-            parent, 
-            text=Config.UI_TEXT['export_params'], 
-            bg=Config.LAYOUT['export_ctrl_bg'], 
-            font=Config.FONTS['zh_bold']
-        ).pack(anchor=tk.W, pady=(0, 10))
-        
-        # 1. 变量加载
-        self._init_form_variables()
-        
-        # 2. 下拉菜单与勾选框挂载
-        self._build_form_widgets(parent)
-        
-        # 3. 后台估算面板及底部动作按钮
-        self._build_info_and_actions(parent)
-
-    def _init_form_variables(self):
-        """ 载入默认状态参数 """
-        self.fmt_var = tk.StringVar(value=Config.EXPORT_VALUES['format'])
-        self.quality_var = tk.StringVar(value=Config.EXPORT_VALUES['quality'])
-        self.dpi_var = tk.IntVar(value=Config.EXPORT_VALUES['dpi'])
-        self.color_var = tk.StringVar(value=Config.EXPORT_VALUES['color'])
-        self.border_var = tk.BooleanVar(value=Config.EXPORT_VALUES['show_border'])
-        self.dir_mode_var = tk.StringVar(value=Config.EXPORT_VALUES['dir_mode'])
-        self.custom_dir_var = tk.StringVar(value=Config.EXPORT_VALUES['custom_dir'])
-
-    def _build_form_widgets(self, parent):
-        """ 绑定下拉菜单并挂载 ModernCheckbutton 小部件 """
-        self.fmt_combo = self._add_combo(parent, Config.UI_TEXT['export_format'], self.fmt_var, Config.EXPORT_OPTIONS['formats'])
-        self.quality_combo = self._add_combo(parent, Config.UI_TEXT['export_quality'], self.quality_var, Config.EXPORT_OPTIONS['qualities'])
-        self.dpi_combo = self._add_combo(parent, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
-        self.color_combo = self._add_combo(parent, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
-        
-        self.border_check = ModernCheckbutton(
-            parent, 
-            Config.UI_TEXT['export_show_border'], 
-            self.border_var, 
-            self._update_preview,
-            bg=Config.LAYOUT['export_ctrl_bg']
-        )
-        self.border_check.pack(anchor=tk.W, pady=(28, Config.LAYOUT['section_pady']))
-        
-        self._add_combo(parent, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
- 
-        self.browse_btn = ttk.Button(parent, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
-        self.browse_btn.pack(fill=tk.X, pady=(5, 2))
-        
-        self.dir_lbl = tk.Label(parent, textvariable=self.custom_dir_var, bg=Config.LAYOUT['export_ctrl_bg'], fg=Config.COLORS['dir_lbl_fg'], anchor="w", wraplength=300)
-        self.dir_lbl.pack(fill=tk.X, pady=(0, 8))
-
-    def _build_info_and_actions(self, parent):
-        """ 绘制导出预估值面板及底层取消和确认导出按钮 """
-        self.info_group = ttk.LabelFrame(parent, text=Config.UI_TEXT['export_info_group'])
-        self.info_group.pack(fill=tk.X, pady=(15, 10))
-        
-        info_inner = tk.Frame(self.info_group, bg=Config.LAYOUT['export_ctrl_bg'], padx=12, pady=10)
-        info_inner.pack(fill=tk.BOTH, expand=True)
-        
-        self.width_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_width_placeholder'], bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], anchor="w")
-        self.width_lbl.pack(fill=tk.X, pady=2)
-        
-        self.height_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_height_placeholder'], bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], anchor="w")
-        self.height_lbl.pack(fill=tk.X, pady=2)
-        
-        self.size_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_size_placeholder'], bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], anchor="w")
-        self.size_lbl.pack(fill=tk.X, pady=2)
-
-        # 弹性推力，使按钮强对齐底部
-        tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg']).pack(fill=tk.BOTH, expand=True)
-
-        # 进度条专属动画容器，高度固定为 6 像素，外加边距，绝不引起界面整体抖动
-        self.progress_container = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'], height=18)
-        self.progress_container.pack(fill=tk.X, pady=(8, 4))
-        self.progress_container.pack_propagate(False)
-        
-        self.progress = ttk.Progressbar(self.progress_container, orient=tk.HORIZONTAL, mode='indeterminate')
-
-        btn_frame = tk.Frame(parent, bg=Config.LAYOUT['export_ctrl_bg'])
-        btn_frame.pack(fill=tk.X, pady=(10, 16))
-        
-        ttk.Button(btn_frame, text=Config.UI_TEXT['btn_cancel'], command=self.dlg.destroy).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
-        
-        self.export_btn = ttk.Button(btn_frame, text=Config.UI_TEXT['btn_start_export'], command=self.export_chart, style='Action.TButton')
-        self.export_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(6, 0))
+        # 挂载右侧配置参数表单组件
+        self.form_panel = ExportForm(self.dlg, self)
+        self.form_panel.pack(side=tk.RIGHT, fill=tk.Y)
 
     def _setup_bindings(self):
-        """ 联动绑定下拉菜单、勾选框和自适应重绘事件 """
+        """ 联动绑定下拉菜单、复选框变量 trace 并配置画布 Configure 自动响应 """
+        form = self.form_panel
+        
+        # 1. 物理导出路径与目录类型切换联动
         def on_dir_mode_changed(*_):
-            is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
-            self.browse_btn.config(state=(tk.NORMAL if is_custom else tk.DISABLED))
-        self.dir_mode_var.trace_add("write", on_dir_mode_changed)
+            is_custom = (form.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
+            form.browse_btn.config(state=(tk.NORMAL if is_custom else tk.DISABLED))
+        form.dir_mode_var.trace_add("write", on_dir_mode_changed)
 
-        def on_format_changed(*_):
-            is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
-            state = "disabled" if is_vector else "readonly"
-            self.quality_combo.config(state=state)
-            self.dpi_combo.config(state=state)
+        def update_dir_display(*_):
+            dir_mode = form.dir_mode_var.get()
+            is_custom = (dir_mode == Config.EXPORT_OPTIONS['dir_modes'][1])
             
-            if is_vector:
-                self.color_combo.config(values=Config.EXPORT_OPTIONS['colors'][:2])
-                if self.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
-                    self.color_var.set(Config.EXPORT_OPTIONS['colors'][0])
+            if not is_custom:
+                # 默认当前目录模式：计算绝对化物理路径，设置禁用视觉样式
+                export_dir = os.path.join(os.getcwd(), "导出结果")
+                form.display_dir_var.set(os.path.abspath(export_dir))
+                
+                form.dir_block.config(bg="#f1f5f9", highlightbackground="#e2e8f0")
+                form.dir_entry.config(
+                    state="disabled",
+                    disabledbackground="#f1f5f9",
+                    disabledforeground="#94a3b8"
+                )
             else:
-                self.color_combo.config(values=Config.EXPORT_OPTIONS['colors'])
+                # 自定义位置模式：同步 custom_dir_var，高亮显示可编辑模式
+                form.dir_block.config(bg="#ffffff", highlightbackground="#cbd5e1")
+                form.dir_entry.config(
+                    state="normal",
+                    background="#ffffff",
+                    foreground="#1e293b",
+                    selectbackground="#cbd5e1"
+                )
+                if form.display_dir_var.get() != form.custom_dir_var.get():
+                    form.display_dir_var.set(form.custom_dir_var.get())
+                
+        def on_display_dir_changed(*_):
+            # 仅在自定义模式下，路径文本框手动输入的改变才同步写回 custom_dir_var
+            dir_mode = form.dir_mode_var.get()
+            if dir_mode == Config.EXPORT_OPTIONS['dir_modes'][1]:
+                if form.custom_dir_var.get() != form.display_dir_var.get():
+                    form.custom_dir_var.set(form.display_dir_var.get())
+
+        form.dir_mode_var.trace_add("write", update_dir_display)
+        form.custom_dir_var.trace_add("write", update_dir_display)
+        form.display_dir_var.trace_add("write", on_display_dir_changed)
+        update_dir_display()  # 首次初始化路径显示
+
+        # 2. 导出文件物理格式切换联动（如果是矢量格式，则置灰倍数与分辨率）
+        def on_format_changed(*_):
+            is_vector = (form.fmt_var.get() in ("svg", "pdf", "emf"))
+            state = "disabled" if is_vector else "readonly"
+            form.quality_combo.config(state=state)
+            form.dpi_combo.config(state=state)
+            
+            # 矢量格式不支持黑白双色，对颜色列表做过滤
+            if is_vector:
+                form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'][:2])
+                if form.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
+                    form.color_var.set(Config.EXPORT_OPTIONS['colors'][0])
+            else:
+                form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'])
             self._update_preview()
             
-        self.fmt_var.trace_add("write", on_format_changed)
+        form.fmt_var.trace_add("write", on_format_changed)
         on_format_changed()
 
-        self.border_var.trace_add("write", lambda *a: self._update_preview())
-        self.color_var.trace_add("write", lambda *a: self._update_preview())
-        self.quality_var.trace_add("write", lambda *a: self._update_preview())
-        self.dpi_var.trace_add("write", lambda *a: self._update_preview())
-        self.preview_canvas.bind("<Configure>", lambda e: self._update_preview())
+        # 3. 勾选及各下拉变动后实时触发重绘与估算
+        form.border_var.trace_add("write", lambda *a: self._update_preview())
+        form.color_var.trace_add("write", lambda *a: self._update_preview())
+        form.quality_var.trace_add("write", lambda *a: self._update_preview())
+        form.dpi_var.trace_add("write", lambda *a: self._update_preview())
+        
+        # 窗口大小改动后自动对齐画布居中
+        self.preview_panel.preview_canvas.bind("<Configure>", lambda e: self._update_preview())
 
     def _update_preview(self):
-        """ 预览窗口的重绘实现，物理 view_scale 固定为 1.0 """
-        self.preview_canvas.delete("all")
+        """
+        实时预览核心重绘驱动方法。
+        根据当前的配置参数，在内存中渲染图解并等比缩放贴至预览画布中。
+        """
+        form = self.form_panel
+        self.preview_panel.clear()
+        
         data = self.app.data_var.get().strip()
         divisor = self.app.divisor_var.get().strip()
         if not data or not divisor:
             return
             
+        # 1. 运行 CRC 引擎重新计算步骤
         q, rows, dividend = self.app.engine.calculate(data, divisor)
+        
+        # 2. 获取当前的上下文环境，固定预览 view_scale 为 1.0 并覆盖参数
         ctx = self.app._get_render_context()
         ctx['view_scale'] = 1.0
-        ctx['show_border'] = self.border_var.get()
+        ctx['show_border'] = form.border_var.get()
         ctx['is_preview'] = True
         
+        # 3. 物理重绘生成基础 Pillow RGBA 图像
         img = self.app.renderer.render(data, dividend, divisor, q, rows, ctx)
-        if self.color_var.get() == Config.EXPORT_OPTIONS['colors'][1]:
-            # 灰度转换无损保留透明通道
+        
+        # 4. 根据当前选定的颜色模式执行像素灰度/黑白转换，同时无损维持透明通道
+        color_opt = Config.EXPORT_OPTIONS['colors']
+        if form.color_var.get() == color_opt[1]:
+            # 灰度转换
             if img.mode in ("RGBA", "LA"):
                 r, g, b, a = img.split()
                 rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
                 img = Image.merge("RGBA", (rgb_gray, rgb_gray, rgb_gray, a))
             else:
                 img = img.convert("L")
-        elif self.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
-            # 黑白转换无损保留透明通道
+        elif form.color_var.get() == color_opt[2]:
+            # 二值黑白转换
             if img.mode in ("RGBA", "LA"):
                 r, g, b, a = img.split()
                 rgb_bw = Image.merge("RGB", (r, g, b)).convert("1").convert("L")
@@ -224,141 +180,143 @@ class ExportDialog:
             else:
                 img = img.convert("1")
         
+        # 5. 更新导出宽度、高度及文件大小的指示文本
         self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
-        self._render_scaled_preview(img)
-
-    def _render_scaled_preview(self, img):
-        """ 自适应预览画布尺寸，缩放并居中图像 """
-        cw, ch = self.preview_canvas.winfo_width(), self.preview_canvas.winfo_height()
-        if cw > 10 and ch > 10:
-            fit_scale = min((cw - 40) / img.width, (ch - 40) / img.height)
-            fit_scale = min(1.0, fit_scale)
-            if fit_scale < 0.99:
-                tw = max(1, int(img.width * fit_scale))
-                th = max(1, int(img.height * fit_scale))
-                img = img.resize((tw, th), Image.Resampling.LANCZOS)
         
-        self.preview_canvas.delete("all")
-        # 1. 优先在最底层铺设大背景棋盘格图，确保全系统格子大小一致
-        self.preview_canvas.create_image(0, 0, image=self.app.canvas_bg_image, anchor="center", tags="canvas_bg")
-        # 2. 贴上公式图
-        self.preview_photo = ImageTk.PhotoImage(img)
-        self.preview_canvas.create_image(0, 0, image=self.preview_photo, anchor="center")
-        self.preview_canvas.config(scrollregion=(-3000, -3000, 3000, 3000))
-        self._recenter_canvas()
+        # 6. 将生成的图像渲染到画布上
+        self.preview_panel.render_preview(img)
 
     def _update_export_info(self, img, data, dividend, divisor, q, rows, ctx):
-        """ 调度 Exporter 估算模块刷新文件预估属性 """
-        fmt = self.fmt_var.get()
+        """ 联动更新右侧表单中的长宽估算指标，并防抖触发大小精密测算 """
+        form = self.form_panel
+        fmt = form.fmt_var.get()
         opt_q = Config.EXPORT_OPTIONS['qualities']
         
         multiplier = {
-            opt_q[0]: 1, opt_q[1]: 1, opt_q[2]: 2,
-            opt_q[3]: 3, opt_q[4]: 4, opt_q[5]: 6
-        }.get(self.quality_var.get(), 1)
+            opt_q[0]: 1, opt_q[1]: 2,
+            opt_q[2]: 3, opt_q[3]: 4
+        }.get(form.quality_var.get(), 1)
         
         if fmt in ("svg", "pdf", "emf"):
-            self.width_lbl.config(text=f"导出宽度: {img.width} 像素 (矢量)")
-            self.height_lbl.config(text=f"导出高度: {img.height} 像素 (矢量)")
-            size_text = Exporter.estimate_vector_size(self.app, fmt, data, dividend, divisor, q, rows, ctx, self.color_var.get(), self.border_var.get())
-            self.size_lbl.config(text=f"预估大小: {size_text}")
+            form.width_lbl.config(text=f"导出宽度: {img.width} 像素 (矢量)")
+            form.height_lbl.config(text=f"导出高度: {img.height} 像素 (矢量)")
         else:
             w_real = img.width * multiplier
             h_real = img.height * multiplier
-            self.width_lbl.config(text=f"导出宽度: {w_real} 像素")
-            self.height_lbl.config(text=f"导出高度: {h_real} 像素")
-            self._debounce_bitmap_size_calc(data, dividend, divisor, q, rows, ctx, multiplier, fmt)
+            form.width_lbl.config(text=f"导出宽度: {w_real} 像素")
+            form.height_lbl.config(text=f"导出高度: {h_real} 像素")
+            
+        # 精密估算大小（应用防抖）
+        self._debounce_size_calc(data, dividend, divisor, q, rows, ctx, multiplier, fmt)
 
-    def _debounce_bitmap_size_calc(self, data, dividend, divisor, q, rows, ctx, multiplier, fmt):
-        """ 对位图精密大小评估应用防抖缓冲，提升交互平滑度 """
+    def _debounce_size_calc(self, data, dividend, divisor, q, rows, ctx, multiplier, fmt):
+        """ 采用统一防抖机制（250毫秒）联动异步线程模拟物理写入，测算百分之百精确的文件大小 """
+        form = self.form_panel
         if getattr(self, '_calc_timer', None):
             try:
                 self.dlg.after_cancel(self._calc_timer)
             except Exception:
                 pass
                 
-        self.size_lbl.config(text="预估大小: 计算中...")
-        save_fmt = "JPEG" if fmt == "jpg" else "PNG"
+        form.size_lbl.config(text="预估大小: 计算中...")
         
-        def run_precise_calc():
-            try:
-                precise_size = Exporter.calculate_precise_bitmap_size(
-                    self.app, data, dividend, divisor, q, rows, ctx,
-                    self.color_var.get(), self.border_var.get(), multiplier, save_fmt, self.dpi_var.get()
-                )
-                self.size_lbl.config(text=f"预估大小: {precise_size:.1f} KB")
-            except Exception:
-                pass
+        # 生成递增自增的计算版本标识符，防止前一次慢计算返回后脏写覆盖新版界面显示
+        if not hasattr(self, '_current_calc_id'):
+            self._current_calc_id = 0
+        self._current_calc_id = (self._current_calc_id + 1) % 10000
+        calc_id = self._current_calc_id
+        
+        def run_precise_calc_thread():
+            import threading
+            
+            def worker():
+                try:
+                    if fmt in ("svg", "pdf", "emf"):
+                        size_text = Exporter.estimate_vector_size(
+                            self.app, fmt, data, dividend, divisor, q, rows, ctx,
+                            form.color_var.get(), form.border_var.get()
+                        )
+                    else:
+                        save_fmt = "JPEG" if fmt == "jpg" else "PNG"
+                        precise_size = Exporter.calculate_precise_bitmap_size(
+                            self.app, data, dividend, divisor, q, rows, ctx,
+                            form.color_var.get(), form.border_var.get(), multiplier, save_fmt, form.dpi_var.get()
+                        )
+                        size_text = f"{precise_size:.1f} KB"
+                    
+                    # 线程安全回调
+                    def update_ui():
+                        if getattr(self, '_current_calc_id', None) == calc_id:
+                            form.size_lbl.config(text=f"预估大小: {size_text}")
+                            
+                    self.dlg.after(0, update_ui)
+                except Exception:
+                    pass
+            
+            # 以守护线程启动计算任务
+            t = threading.Thread(target=worker, daemon=True)
+            t.start()
                 
-        self._calc_timer = self.dlg.after(250, run_precise_calc)
-
-    def _recenter_canvas(self):
-        """ 物理平移归零，使预览图像始终居中 """
-        self.preview_canvas.update_idletasks()
-        cw, ch = self.preview_canvas.winfo_width(), self.preview_canvas.winfo_height()
-        bbox = self.preview_canvas.bbox("all")
-        if bbox:
-            self.preview_canvas.xview_moveto(((bbox[0] + bbox[2]) / 2 - cw / 2 + 3000) / 6000)
-            self.preview_canvas.yview_moveto(((bbox[1] + bbox[3]) / 2 - ch / 2 + 3000) / 6000)
-
-    def _pick_export_dir(self):
-        """ 唤起系统目录挑选面板 """
-        d = filedialog.askdirectory(title=Config.UI_TEXT['dialog_pick_dir_title'])
-        if d:
-            self.custom_dir_var.set(d)
-
-    def _set_widgets_state(self, state):
-        """ 统一设置所有表单控件与动作按钮的启用/禁用状态，防范并发重入与误操作 """
-        self.export_btn.config(state=state)
-        # 禁用或启用底部的取消按钮
-        for child in self.export_btn.master.winfo_children():
-            if isinstance(child, ttk.Button):
-                child.config(state=state)
-        
-        # 禁用或启用其他配置下拉组件
-        self.fmt_combo.config(state=state)
-        self.color_combo.config(state=state)
-        
-        is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
-        self.quality_combo.config(state=state if not is_vector else tk.DISABLED)
-        self.dpi_combo.config(state=state if not is_vector else tk.DISABLED)
-        
-        is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
-        self.browse_btn.config(state=state if is_custom else tk.DISABLED)
+        self._calc_timer = self.dlg.after(250, run_precise_calc_thread)
 
     def _on_export_success(self, out_path, export_dir):
-        """ 导出成功的主线程回调 """
-        self.progress.stop()
-        self.progress.pack_forget()
-        self._set_widgets_state(tk.NORMAL)
+        """ 导出成功的主线程回调，唤起打勾徽章模态提示窗 """
+        form = self.form_panel
+        form.progress.stop()
+        form.progress.pack_forget()
+        form.set_widgets_state(tk.NORMAL)
         SuccessDialog(self.dlg, out_path, export_dir)
 
     def _on_export_failure(self, e):
         """ 导出失败的主线程回调 """
-        self.progress.stop()
-        self.progress.pack_forget()
-        self._set_widgets_state(tk.NORMAL)
+        form = self.form_panel
+        form.progress.stop()
+        form.progress.pack_forget()
+        form.set_widgets_state(tk.NORMAL)
         self._show_error_dialog(e)
 
     def export_chart(self):
-        """ 调度 Exporter 后台线程执行文件物理写入，彻底避免 UI 假死与并发重入 """
+        """ 核心物理导出操作：拉起守护后台线程，避免写盘假死，实现极其顺滑的无阻塞用户体验 """
         import threading
+        form = self.form_panel
         
-        # 1. 立即锁定 UI，展示进度条并启动不确定滑动动画，防止并发点击导致 OOM
-        self._set_widgets_state(tk.DISABLED)
-        self.progress.pack(fill=tk.BOTH, expand=True)
-        self.progress.start(10)
+        # 1. 前置校验：如果选择自定义目录，检验其路径是否在物理磁盘上真实存在，且是一个有效的目录
+        dir_mode = form.dir_mode_var.get()
+        custom_dir = form.custom_dir_var.get().strip()
         
-        # 2. 收集渲染所需变量参数
-        fmt = self.fmt_var.get()
-        show_border = self.border_var.get()
-        color_mode = self.color_var.get()
-        quality = self.quality_var.get()
-        dpi = self.dpi_var.get()
-        dir_mode = self.dir_mode_var.get()
-        custom_dir = self.custom_dir_var.get()
+        if dir_mode == Config.EXPORT_OPTIONS['dir_modes'][1]:  # 自定义位置
+            if not custom_dir:
+                messagebox.showwarning(
+                    Config.MESSAGES['warning_title_invalid'], 
+                    Config.MESSAGES['warning_custom_dir_empty']
+                )
+                return
+            if not os.path.exists(custom_dir):
+                messagebox.showerror(
+                    "路径不存在",
+                    f"您指定的自定义导出目录不存在：\n\n{custom_dir}\n\n请先在系统中手动创建该目录，或在输入框中填入正确的路径。"
+                )
+                return
+            if not os.path.isdir(custom_dir):
+                messagebox.showerror(
+                    "路径无效",
+                    f"您指定的路径不是一个有效的目录：\n\n{custom_dir}\n\n请重新输入或点击“浏览目录”按钮选择。"
+                )
+                return
+
+        # 2. 锁定配置表单，阻断高频重复点击，展示浮动滑动进度条
+        form.set_widgets_state(tk.DISABLED)
+        form.progress.pack(fill=tk.BOTH, expand=True)
+        form.progress.start(10)
         
-        # 3. 构建并启动异步后台守护线程
+        # 3. 收集表单状态参数以供渲染计算使用
+        fmt = form.fmt_var.get()
+        show_border = form.border_var.get()
+        color_mode = form.color_var.get()
+        quality = form.quality_var.get()
+        dpi = form.dpi_var.get()
+        
+        # 4. 后台物理写入
         def async_worker():
             try:
                 out_path, export_dir = Exporter.export(
@@ -371,8 +329,10 @@ class ExportDialog:
                     dir_mode,
                     custom_dir
                 )
+                # 成功回调
                 self.dlg.after(0, lambda: self._on_export_success(out_path, export_dir))
             except Exception as e:
+                # 失败回调
                 self.dlg.after(0, lambda: self._on_export_failure(e))
                 
         threading.Thread(target=async_worker, daemon=True).start()
@@ -386,16 +346,3 @@ class ExportDialog:
                 error_msg=str(e)
             )
         )
-
-    def _add_combo(self, parent, label, var, values):
-        """ 快速组合框小部件构建 helper """
-        tk.Label(
-            parent, 
-            text=label, 
-            bg=Config.LAYOUT['export_ctrl_bg'], 
-            font=Config.FONTS['zh_normal']
-        ).pack(anchor=tk.W, pady=(6, 2))
-        
-        combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
-        combo.pack(fill=tk.X)
-        return combo

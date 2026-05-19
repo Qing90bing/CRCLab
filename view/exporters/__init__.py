@@ -8,6 +8,7 @@ from view.exporters.emf import EMFExporter
 EXPORTERS = {
     "png": BitmapExporter,
     "jpg": BitmapExporter,
+    "jpeg": BitmapExporter,
     "svg": SVGExporter,
     "pdf": PDFExporter,
     "emf": EMFExporter
