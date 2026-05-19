@@ -31,6 +31,12 @@ class Config:
         'preview_canvas_bg': "#ffffff",  # 导出预览画布背景色
         'preview_canvas_border': "#cbd5e1", # 导出预览画布边框高亮色
         'dir_lbl_fg': "#64748b",        # 导出目录路径文字灰色
+        'dashboard_bg': "#ffffff",      # 解析看板背景色
+        'dashboard_card_bg': "#ffffff", # 解析看板卡片背景色
+        'dashboard_card_border': "#e2e8f0", # 看板卡片边框色
+        'text_muted': "#64748b",        # 置灰/次要文字颜色
+        'text_dark': "#1e293b",         # 加黑/主要文字颜色
+        'frame_highlight': "#ef4444",   # 最终发送帧校验码高亮色 (红色)
     }
 
     MESSAGES = {
@@ -106,6 +112,13 @@ class Config:
         'btn_cancel': "取消",
         'btn_start_export': "开始导出",
         'dialog_pick_dir_title': "选择导出目录",
+
+        # 解析看板文字
+        'dashboard_title': "实时运算结果解析看板",
+        'card_input_title': "输入特征分析",
+        'card_stats_title': "运算步骤统计",
+        'card_checksum_title': "校验输出结果",
+        'card_frame_title': "发送数据帧 (Code Word)",
     }
 
     # 界面组件布局参数：精确控制侧边栏和控件的样式
@@ -173,6 +186,12 @@ class Config:
         'canvas_scroll_bound': 2000,     # 画布无限滚动范围的物理边界半宽
         'zoom_mousewheel_max': 5.0,      # 鼠标滚轮缩放的最大上限
         'default_screen_width_fallback': 1600, # 屏幕尺寸获取失败时的宽度默认备用值
+        
+        # 解析看板布局参数
+        'dashboard_height': 220,         # 看板整体高度
+        'card_gap': 12,                  # 卡片之间的间隔
+        'card_padding_x': 16,            # 卡片水平内边距
+        'card_padding_y': 16,            # 卡片垂直内边距
     }
 
     # 默认业务参数配置表：程序启动时的初始状态

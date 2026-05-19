@@ -9,6 +9,7 @@ from config.constants import Config
 from view.renderer import CanvasRenderer
 from view.sidebar import SidebarPanel
 from view.export_dialog import ExportDialog
+from view.dashboard import DashboardPanel
 
 class CRCVisualizerApp:
     """
@@ -114,7 +115,7 @@ class CRCVisualizerApp:
     # --- UI 构建逻辑 ---
 
     def setup_ui(self):
-        """ 构建整体 UI 框架：左侧解耦参数面板 + 右侧核心画布区域 """
+        """ 构建整体 UI 框架：左侧解耦参数面板 + 右侧核心画布及解析看板区域 """
         win_w = self.root.winfo_width()
         if win_w <= 1:
             win_w = min(Config.LAYOUT['default_screen_width_fallback'], int(self.root.winfo_screenwidth() * 0.9))
@@ -123,13 +124,18 @@ class CRCVisualizerApp:
         # 1. 挂载解耦的控制侧边栏视图
         self.sidebar = SidebarPanel(self.root, self, side_w)
         
-        # 2. 构建右侧核心画布展示区
-        self._setup_canvas_area()
+        # 2. 构建右侧核心画布及解析看板区域
+        self._setup_right_area()
 
-    def _setup_canvas_area(self):
-        """ 构建右侧核心展示画布区域 """
-        cont = tk.Frame(self.root, bg=Config.LAYOUT['canvas_bg'], bd=2)
-        cont.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10), pady=10)
+    def _setup_right_area(self):
+        """ 构建右侧主容器及其内部结构 """
+        # 右侧的整体垂直排列容器
+        self.right_container = tk.Frame(self.root, bg=Config.COLORS['main_bg'])
+        self.right_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10), pady=10)
+        
+        # 1. 顶部的核心展示画布容器，采用原有的黑色高科技底板色
+        cont = tk.Frame(self.right_container, bg=Config.LAYOUT['canvas_bg'], bd=2)
+        cont.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
         self.canvas = tk.Canvas(cont, bg=Config.COLORS['canvas_default_bg'], highlightthickness=0, cursor="hand2")
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -143,6 +149,10 @@ class CRCVisualizerApp:
         self.canvas.bind("<MouseWheel>", self.on_mousewheel)
         # 绑定画布大小改变（及首次物理渲染显示事件），动态刷新大底图对齐
         self.canvas.bind("<Configure>", lambda e: self._update_bg_position())
+        
+        # 2. 底部的实时解析看板
+        self.dashboard = DashboardPanel(self.right_container, self)
+        self.dashboard.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
 
     def _setup_canvas_toolbar(self, parent):
         """ 构建画布上方的浮动控制工具栏 """
@@ -248,6 +258,9 @@ class CRCVisualizerApp:
         
         if auto_center:
             self.center_view()
+            
+        # 5. 实时刷新底部解析看板
+        self.dashboard.update_data(data, divisor, q, rows)
 
     def _get_render_context(self):
         """ 收集并返回当前配置变量的渲染上下文字典 """
