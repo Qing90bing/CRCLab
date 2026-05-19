@@ -54,8 +54,12 @@ class CRCVisualizerApp:
     def _setup_window_icon(self):
         """ 安全地设置窗口及任务栏高清图标 """
         import os
-        icon_ico = "app_icon.ico"
-        icon_png = "app_icon.png"
+        import sys
+        
+        # 兼容单文件打包和常规运行环境，动态定位绝对路径，防范 CWD 漂移的影响
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_ico = os.path.join(base_dir, "app_icon.ico")
+        icon_png = os.path.join(base_dir, "app_icon.png")
         
         try:
             # Windows 任务栏高分辨率 App ID 适配，防止任务栏显示 Python 默认的“蟒蛇”图标

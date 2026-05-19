@@ -113,11 +113,3 @@ cython_debug/
 # OS files
 .DS_Store
 Thumbs.db
-
-# Project specific: Generated exports
-exports/
-*.png
-*.jpg
-*.jpeg
-*.pdf
-*.svg

@@ -214,7 +214,7 @@ class CanvasRenderer:
         
         # 对物理位图渲染补充内部圆角盖，以彻底填补 Pillow 在大线宽下多段线绘制的接头断裂缺陷，同时保留首尾两端的直角端盖
         actual_draw = draw.real_draw if hasattr(draw, 'real_draw') else draw
-        if not hasattr(draw, 'commands'):  # 仅针对原生 PIL 画布执行物理圆盖修补，不污染矢量拦截器（SVG、EMF 已由矢量引擎原生完美平滑对接）
+        if not hasattr(draw, 'commands') and hasattr(actual_draw, 'ellipse'):  # 仅针对原生 PIL 画布执行物理圆盖修补，不污染矢量拦截器（SVG、EMF 已由矢量引擎原生完美平滑对接）
             r = L['line_w'] / 2.0
             for pt in pts[1:-1]:
                 x, y = pt
