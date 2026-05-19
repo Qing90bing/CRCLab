@@ -157,9 +157,33 @@ class SidebarPanel(tk.Frame):
         # 分割线及“导出图表”按钮
         tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
         ttk.Button(parent, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
-                   style='Action.TButton').pack(fill=tk.X, pady=(15, 30))
+                   style='Action.TButton').pack(fill=tk.X, pady=(15, 20))
+
+        # 悬浮或次要按钮：“关于软件”与版权微型页脚
+        tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=(10, 15))
+        ttk.Button(parent, text=Config.UI_TEXT['btn_about'], command=self.show_about_dialog).pack(fill=tk.X)
+
+        # 极细版权微标
+        tk.Label(parent, text=Config.COPYRIGHT, bg=Config.COLORS['sidebar_bg'], 
+                 fg=Config.COLORS['text_muted'], font=Config.FONTS['btn_small']).pack(pady=(15, 10))
 
     def update_swatches(self):
         """ 响应色彩重置或重新选取，动态同步色彩块底色 """
         for attr, row in self.color_rows.items():
             row.update_color(getattr(self.app, attr))
+
+    def show_about_dialog(self):
+        """ 弹出优雅且解耦的关于本软件对话框 """
+        from tkinter import messagebox
+        about_text = (
+            f"项目名称: CRC 长除法解析与验证工具 (CRC Visualizer)\n"
+            f"当前版本: {Config.VERSION}\n"
+            f"主要作者: {Config.AUTHOR}\n"
+            f"开源仓库: {Config.REPOSITORY}\n\n"
+            f"技术特性:\n"
+            f" • 支持完全无损的矢量 EMF / SVG 导出\n"
+            f" • 具备 GDI 高清渲染核心，完美兼容 Office 排版\n"
+            f" • 实时二进制长除运算结果看板\n\n"
+            f"{Config.COPYRIGHT}"
+        )
+        messagebox.showinfo(Config.UI_TEXT['about_title'], about_text)

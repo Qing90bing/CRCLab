@@ -22,6 +22,9 @@ class CRCVisualizerApp:
         self.root = root
         self.root.title(Config.UI_TEXT['title'])
         
+        # 加载并配置窗口/任务栏图标
+        self._setup_window_icon()
+        
         # 1. 初始化核心计算引擎
         self.engine = CRCEngine()
         self.renderer = None
@@ -47,6 +50,29 @@ class CRCVisualizerApp:
         self.root.update_idletasks()
         self.generate(auto_center=True)
         self.root.after(100, self.center_view)
+
+    def _setup_window_icon(self):
+        """ 安全地设置窗口及任务栏高清图标 """
+        import os
+        icon_ico = "app_icon.ico"
+        icon_png = "app_icon.png"
+        
+        try:
+            # Windows 任务栏高分辨率 App ID 适配，防止任务栏显示 Python 默认的“蟒蛇”图标
+            import ctypes
+            myappid = f"{Config.AUTHOR}.CRCVisualizer.version.{Config.VERSION}"
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            pass
+
+        try:
+            if os.path.exists(icon_png):
+                self.app_icon_img = ImageTk.PhotoImage(file=icon_png)
+                self.root.iconphoto(True, self.app_icon_img)
+            elif os.path.exists(icon_ico):
+                self.root.iconbitmap(icon_ico)
+        except Exception:
+            pass
 
     # --- 状态与变量初始化 ---
 

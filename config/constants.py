@@ -6,6 +6,12 @@ class Config:
     默认业务参数以及字体配置。通过修改此类，可以快速调整 UI 风格和默认行为。
     """
     
+    # 软件版本定义
+    VERSION = "v1.0.1"
+    AUTHOR = "Qing90bing"
+    COPYRIGHT = "© 2026 Qing90bing. All Rights Reserved."
+    REPOSITORY = "https://github.com/Qing90bing/CRC_visualizer"
+    
     # 默认配色方案：采用现代化的柔和色调
     DEFAULT_COLORS = {
         'digit_color': "#000000",      # 标准数字颜色（主要用于被除数和商）
@@ -66,7 +72,7 @@ class Config:
     DEFAULT_FONT_SIZE = 22
     
     UI_TEXT = {
-        'title': "CRC 长除法解析与验证工具",
+        'title': f"CRC 长除法解析与验证工具 {VERSION}",
         'data_label': "数据位:",
         'poly_label': "多项式:",
         'font_size': "文字大小:",
@@ -119,11 +125,15 @@ class Config:
         'card_stats_title': "运算步骤统计",
         'card_checksum_title': "校验输出结果",
         'card_frame_title': "发送数据帧 (Code Word)",
+        
+        # 关于软件相关文本
+        'btn_about': "关于软件",
+        'about_title': "关于 CRC Visualizer",
     }
 
     # 界面组件布局参数：精确控制侧边栏和控件的样式
     LAYOUT = {
-        'side_ratio': 0.28,      # 侧边栏占据窗口宽度的比例 (28%)
+        'side_ratio': 0.32,      # 侧边栏占据窗口宽度的比例 (30%)
         'min_side_width': 400,   # 侧边栏最小宽度保证
         'input_padx': 20,        # 输入区域水平内边距
         'input_pady': 20,        # 输入区域垂直内边距
