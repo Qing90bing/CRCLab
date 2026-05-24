@@ -15,7 +15,7 @@ class SidebarPanel(tk.Frame):
         """
         初始化侧边栏。
         :param parent: 容纳侧边栏的父容器。
-        :param app: 主应用程序 CRCVisualizerApp 实例。
+        :param app: 主应用程序 CRCLabApp 实例。
         :param width: 侧边栏宽度。
         """
         super().__init__(parent, bg=Config.COLORS['sidebar_bg'], width=width)
@@ -176,7 +176,7 @@ class SidebarPanel(tk.Frame):
         """ 弹出优雅且解耦的关于本软件对话框 """
         from tkinter import messagebox
         about_text = (
-            f"项目名称: CRC 长除法解析与验证工具 (CRC Visualizer)\n"
+            f"项目名称: CRC 长除法解析与验证工具 (CRCLab)\n"
             f"当前版本: {Config.VERSION}\n"
             f"主要作者: {Config.AUTHOR}\n"
             f"开源仓库: {Config.REPOSITORY}\n\n"

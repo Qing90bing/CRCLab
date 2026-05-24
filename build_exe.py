@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-CRC Visualizer - Nuitka 自动化一键打包脚本
+CRCLab - Nuitka 自动化一键打包脚本
 """
 import os
 import sys
@@ -29,8 +29,8 @@ def run_build():
         version_str = "1.0.1.0"
     
     # 检查静态资源是否存在
-    icon_ico = "app_icon.ico"
-    icon_png = "app_icon.png"
+    icon_ico = os.path.join("resources", "app_icon.ico")
+    icon_png = os.path.join("resources", "app_icon.png")
     
     extra_args = []
     if os.path.exists(icon_ico):
@@ -51,16 +51,16 @@ def run_build():
         "--show-progress",                   # 显示编译进度
         
         # Windows 版权与元数据注入
-        "--company-name=CRC Studio",
-        "--product-name=CRC Visualizer",
+        "--company-name=CRCLab Studio",
+        "--product-name=CRCLab",
         f"--file-version={version_str}",
         f"--product-version={version_str}",
-        "--file-description=Real-time CRC calculation and division arc visualizer.",
-        "--copyright=Copyright © 2026 CRC Studio. All rights reserved.",
+        "--file-description=Real-time CRC calculation and division arc visualizer (CRCLab).",
+        "--copyright=Copyright © 2026 CRCLab. All rights reserved.",
         
         # 输出路径设定
         "--output-dir=dist",
-        "--output-filename=CRC_Visualizer.exe",
+        "--output-filename=CRCLab.exe",
     ]
     
     # 拼接额外资源参数和入口文件

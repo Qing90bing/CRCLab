@@ -12,7 +12,7 @@ class ExportPreview(tk.Frame):
         """
         初始化预览面板。
         :param parent: 父级容器。
-        :param app: 主应用程序 CRCVisualizerApp 实例。
+        :param app: 主应用程序 CRCLabApp 实例。
         """
         super().__init__(parent, bg=Config.LAYOUT['export_preview_bg'], padx=10, pady=10)
         self.app = app

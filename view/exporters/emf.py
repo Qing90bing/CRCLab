@@ -196,7 +196,7 @@ class EMFExporter(BaseExporter):
         ctx['color_mode'] = color_mode
         
         path_ptr = ctypes.c_wchar_p(out_path)
-        hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, path_ptr, None, "CRC Visualizer Chart")
+        hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, path_ptr, None, "CRCLab Chart")
         if not hdc:
             raise OSError("无法创建 EMF 设备上下文。")
             
@@ -215,7 +215,7 @@ class EMFExporter(BaseExporter):
         if not HAS_EMF_DEPENDENCY:
             return "EMF仅限Windows系统"
         try:
-            hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, None, None, "CRC Chart")
+            hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, None, None, "CRCLab Chart")
             if not hdc:
                 return "估算失败"
                 

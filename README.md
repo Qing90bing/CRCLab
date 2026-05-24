@@ -1,7 +1,7 @@
-# CRC Visualizer (CRC 循环冗余校验计算与可视化工具)
+# CRCLab (CRC 循环冗余校验计算与可视化工具)
 
 ## 1. 软件概述
-`CRC Visualizer` 是一款基于 Python 与 Tkinter 开发的 CRC（循环冗余校验）长除法计算与可视化辅助工具。本程序支持常用的标准生成多项式（如 CRC-4、CRC-8、CRC-16、CRC-32）以及自定义多项式的模二除法演算，并以图形化形式（包含余数长除式及关联圆弧图）展示计算过程，方便学习与协议分析。
+`CRCLab` 是一款基于 Python 与 Tkinter 开发的 CRC（循环冗余校验）长除法计算与可视化辅助工具。本程序支持常用的标准生成多项式（如 CRC-4、CRC-8、CRC-16、CRC-32）以及自定义多项式的模二除法演算，并以图形化形式（包含余数长除式及关联圆弧图）展示计算过程，方便学习与协议分析。
 
 系统支持将生成的图表导出为 `PNG`、`JPG`、`SVG`、`PDF` 以及 Windows 原生的 `EMF` 矢量图元格式，便于在文档、报告中进行排版和配图。
 
@@ -31,7 +31,7 @@
 
 1. **进入项目根目录**：
    ```powershell
-   cd e:\My_Project\CRC_visualizer
+   cd e:\My_Project\CRCLab
    ```
 
 2. **创建并激活虚拟环境**：
@@ -84,14 +84,14 @@ python build_exe.py
 
 ### 4.3 构建结果说明
 - **构建时长**：由于 Nuitka 需要将代码编译为 C++ 并进行编译优化，通常需要 2 至 5 分钟。
-- **发布产物**：构建完成后，会在根目录下生成 `dist` 文件夹，其中的 `CRC_Visualizer.exe` 即可作为无 Python 环境依赖的独立程序分发。程序内已包含了运行时所需的静态资源及 PDF、EMF 导出库。
+- **发布产物**：构建完成后，会在根目录下生成 `dist` 文件夹，其中的 `CRCLab.exe` 即可作为无 Python 环境依赖的独立程序分发。程序内已包含了运行时所需的静态资源及 PDF、EMF 导出库。
 
 ---
 
 ## 5. 项目目录结构
 
 ```text
-CRC_visualizer/
+CRCLab/
 ├── core/                # 算法运算核心模块
 │   └── engine.py        # 二进制模二除法核心计算引擎
 ├── view/                # 界面展现与绘制控制层
@@ -113,8 +113,10 @@ CRC_visualizer/
 │       └── emf.py       # 基于 Windows GDI32 底层原生的 EMF 矢量图元插件
 ├── config/              # 常量与全局静态设置中心
 │   └── constants.py     # 静态色彩、预设多项式、字体降级回退及布局参数定义
-├── app_icon.ico         # 应用程序系统图标
-├── app_icon.png         # 高清晰图片资源
+├── resources/           # 静态资源与图片文件夹
+│   ├── app_icon.ico     # 应用程序系统图标
+│   ├── app_icon.png     # 高清晰图片资源
+│   └── app_icon2.png    # 备用高清晰大图资源
 ├── build_exe.py         # Nuitka 自动化一键打包编译脚本
 └── README.md            # 项目使用与部署说明文档 (本文档)
 ```

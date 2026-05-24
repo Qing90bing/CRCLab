@@ -10,7 +10,7 @@ class Config:
     VERSION = "v1.0.1"
     AUTHOR = "Qing90bing"
     COPYRIGHT = "© 2026 Qing90bing. All Rights Reserved."
-    REPOSITORY = "https://github.com/Qing90bing/CRC_visualizer"
+    REPOSITORY = "https://github.com/Qing90bing/CRCLab"
     
     # 默认配色方案：采用现代化的柔和色调
     DEFAULT_COLORS = {
@@ -72,7 +72,7 @@ class Config:
     DEFAULT_FONT_SIZE = 22
     
     UI_TEXT = {
-        'title': f"CRC 长除法解析与验证工具 {VERSION}",
+        'title': f"CRCLab 循环冗余校验解析与验证工具 {VERSION}",
         'data_label': "数据位:",
         'poly_label': "多项式:",
         'font_size': "文字大小:",
@@ -128,7 +128,7 @@ class Config:
         
         # 关于软件相关文本
         'btn_about': "关于软件",
-        'about_title': "关于 CRC Visualizer",
+        'about_title': "关于 CRCLab",
     }
 
     # 界面组件布局参数：精确控制侧边栏和控件的样式

@@ -19,7 +19,7 @@ class ExportDialog:
     def __init__(self, app):
         """
         初始化导出对话框。
-        :param app: 主应用程序 CRCVisualizerApp 实例。
+        :param app: 主应用程序 CRCLabApp 实例。
         """
         self.app = app
         self._calc_timer = None

@@ -11,9 +11,9 @@ from view.sidebar import SidebarPanel
 from view.export_dialog import ExportDialog
 from view.dashboard import DashboardPanel
 
-class CRCVisualizerApp:
+class CRCLabApp:
     """
-    CRC Visualizer 应用程序主类。
+    CRCLab 应用程序主类。
     
     管理主界面视图与核心渲染管线，通过侧边栏面板进行参数控制交互，
     统一管理状态变量并协调图像的重绘与导出。
@@ -58,13 +58,13 @@ class CRCVisualizerApp:
         
         # 兼容单文件打包和常规运行环境，动态定位绝对路径，防范 CWD 漂移的影响
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        icon_ico = os.path.join(base_dir, "app_icon.ico")
-        icon_png = os.path.join(base_dir, "app_icon.png")
+        icon_ico = os.path.join(base_dir, "resources", "app_icon.ico")
+        icon_png = os.path.join(base_dir, "resources", "app_icon.png")
         
         try:
             # Windows 任务栏高分辨率 App ID 适配，防止任务栏显示 Python 默认的“蟒蛇”图标
             import ctypes
-            myappid = f"{Config.AUTHOR}.CRCVisualizer.version.{Config.VERSION}"
+            myappid = f"{Config.AUTHOR}.CRCLab.version.{Config.VERSION}"
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
@@ -435,5 +435,5 @@ if __name__ == "__main__":
         pass
         
     root = tk.Tk()
-    app = CRCVisualizerApp(root)
+    app = CRCLabApp(root)
     root.mainloop()
