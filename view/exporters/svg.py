@@ -174,6 +174,12 @@ class SVGExporter(BaseExporter):
         ty = (cy - y0) / ssaa_factor + p + 0.33 * font_sz_real
         escaped_text = text_val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         
+        is_bold = False
+        if hasattr(font, 'path') and isinstance(font.path, str) and 'bd' in font.path.lower():
+            is_bold = True
+            
+        font_weight = 'font-weight="bold" ' if is_bold else ''
+        
         fill_attrs = f'fill="{fill_color}"'
         if fill_op < 1.0 and fill_color != "none":
             fill_attrs += f' fill-opacity="{fill_op:.3f}"'
@@ -181,7 +187,7 @@ class SVGExporter(BaseExporter):
         svg_elements.append(
             f'  <text x="{tx:.2f}" y="{ty:.2f}" '
             f'font-family="Times New Roman, Times, serif" font-size="{font_sz_real:.2f}" '
-            f'{fill_attrs} text-anchor="middle">{escaped_text}</text>'
+            f'{font_weight}{fill_attrs} text-anchor="middle">{escaped_text}</text>'
         )
 
     @staticmethod

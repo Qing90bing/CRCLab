@@ -15,13 +15,14 @@ class CanvasRenderer:
         """
         self.canvas = canvas
 
-    def _load_font(self, size):
+    def _load_font(self, size, is_bold=False):
         """
         加载 Times New Roman 矢量字体。
         如果系统不包含该字体，则按顺序尝试加载 fallback_families 列表中的备用字体。
         """
         families = Config.FONTS['fallback_families']
-        for family in families:
+        target_families = ["timesbd.ttf", "timesbd"] + families if is_bold else families
+        for family in target_families:
             try:
                 return ImageFont.truetype(family, int(size))
             except IOError:
@@ -161,11 +162,13 @@ class CanvasRenderer:
         fs = int(ctx['font_size'] * s)  # 应用缩放后的字体大小
         grid_base = ctx['grid_base'] * s
         
-        font = self._load_font(fs)
+        font = self._load_font(fs, is_bold=False)
+        font_bold = self._load_font(fs, is_bold=True)
         
         return {
             's': s,
             'font': font,
+            'font_bold': font_bold,
             'grid_base': grid_base,
             'cell_w': grid_base * ctx['h_spacing'],             # 单元格宽度（间距调整）
             'cell_h': (grid_base * 1.1) * ctx['v_spacing'],     # 单元格高度（行距调整）
@@ -177,10 +180,11 @@ class CanvasRenderer:
 
     def _draw_quotient(self, draw, q, L, ctx, ox, oy):
         """ 绘制顶部的商 """
+        target_font = L['font_bold'] if ctx.get('bold_quotient', False) else L['font']
         for i, char in enumerate(q):
             cx = ox + (L['pad_cells'] + L['divisor_len'] - 1 + i) * L['cell_w'] + L['cell_w']/2
             cy = oy + L['cell_h'] / 2
-            draw.text((cx, cy), text=char, font=L['font'], fill=ctx['digit_color'], anchor="mm")
+            draw.text((cx, cy), text=char, font=target_font, fill=ctx.get('quotient_color', '#000000'), anchor="mm")
 
     def _draw_header_elements(self, draw, dividend, L, ctx, ox, oy):
         """ 绘制主横线与左侧贝塞尔弧线 """
@@ -257,15 +261,19 @@ class CanvasRenderer:
             draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
 
         # 2. 绘制左侧除数
+        divisor_font = L['font_bold'] if ctx.get('bold_divisor', False) else L['font']
         for i, char in enumerate(divisor):
             cx = ox + i * L['cell_w'] + L['cell_w']/2
-            draw.text((cx, oy + cy), text=char, font=L['font'], fill=ctx['digit_color'], anchor="mm")
+            draw.text((cx, oy + cy), text=char, font=divisor_font, fill=ctx.get('divisor_color', '#000000'), anchor="mm")
 
         # 3. 绘制右侧被除数
+        dividend_font = L['font_bold'] if ctx.get('bold_dividend', False) else L['font']
+        zeros_font = L['font_bold'] if ctx.get('bold_zeros', False) else L['font']
         for i, char in enumerate(dividend):
             cx = ox + (L['pad_cells'] + i) * L['cell_w'] + L['cell_w']/2
-            color = ctx['bg_digit_color'] if i >= pad_idx else ctx['digit_color']
-            draw.text((cx, oy + cy), text=char, font=L['font'], fill=color, anchor="mm")
+            color = ctx['bg_digit_color'] if i >= pad_idx else ctx.get('dividend_color', '#000000')
+            font_to_use = zeros_font if i >= pad_idx else dividend_font
+            draw.text((cx, oy + cy), text=char, font=font_to_use, fill=color, anchor="mm")
 
     def _draw_steps(self, draw, rows, data, line_y, L, ctx, ox, oy):
         """ 顺序绘制 CRC 异或计算中间行与横线 """
@@ -300,13 +308,17 @@ class CanvasRenderer:
                 draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
 
         # 2. 绘制该行中的二进制数字
+        dividend_font = L['font_bold'] if ctx.get('bold_dividend', False) else L['font']
+        zeros_font = L['font_bold'] if ctx.get('bold_zeros', False) else L['font']
         for i, char in enumerate(row['val']):
             cx = ox + (L['pad_cells'] + row['offset'] + i) * L['cell_w'] + L['cell_w']/2
-            color = ctx['digit_color']
+            color = ctx.get('dividend_color', '#000000')
+            font_to_use = dividend_font
             # 被拉下来的补零数字显示特殊颜色
             if row['type'] == 'remainder' and i >= (len(data) - row['offset']):
                 color = ctx['bg_digit_color']
-            draw.text((cx, oy + cy), text=char, font=L['font'], fill=color, anchor="mm")
+                font_to_use = zeros_font
+            draw.text((cx, oy + cy), text=char, font=font_to_use, fill=color, anchor="mm")
 
     def _fill_checkerboard(self, img, size=10):
         """ 在图像底板上用柔和灰白棋盘格填充，指示预览状态下的透明背景 """

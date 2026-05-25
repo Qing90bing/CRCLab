@@ -96,6 +96,10 @@ class CRCLabApp:
         self.line_ext_right_var = tk.DoubleVar(value=dv['ext_right'])
         self.curve_span_left_var = tk.DoubleVar(value=dv['span_left'])
         self.curve_span_right_var = tk.DoubleVar(value=dv['span_right'])
+        self.bold_zeros_var = tk.BooleanVar(value=dv.get('bold_zeros', False))
+        self.bold_divisor_var = tk.BooleanVar(value=dv.get('bold_divisor', False))
+        self.bold_quotient_var = tk.BooleanVar(value=dv.get('bold_quotient', False))
+        self.bold_dividend_var = tk.BooleanVar(value=dv.get('bold_dividend', False))
 
     def _load_default_colors(self):
         """ 从配置中心加载默认颜色属性 """
@@ -145,11 +149,7 @@ class CRCLabApp:
         # 高亮动作按钮样式，使用粗体并统一 padding 以确保与常规按钮高度等高
         self.style.configure('Action.TButton', font=Config.FONTS['zh_bold'], padding=(10, 5))
         
-        # 顶部工具栏按钮样式：
-        # 1. 常规文本按钮样式，增加 padding 以利于交互点按
-        self.style.configure('Toolbutton', font=Config.FONTS['zh_normal'], padding=(12, 12))
-        # 2. 缩放符号按钮样式（-、+），配置较大字号以使加减符号醒目清晰
-        self.style.configure('Zoom.Toolbutton', font=Config.FONTS['zoom_btn'], padding=(10, 8))
+        # 顶部浮动工具栏按钮样式（不再使用，改用原生 tk.Button）
 
     # --- UI 构建逻辑 ---
 
@@ -194,36 +194,87 @@ class CRCLabApp:
         self.dashboard.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
 
     def _setup_canvas_toolbar(self, parent):
-        """ 构建画布上方的浮动控制工具栏 """
-        # 使用 1 像素扁平边框，配置内边距实现悬浮工具栏样式
+        """ 构建画布上方的浮动控制工具栏，采用 Windows 原生按钮风格 """
         tb = tk.Frame(
-            parent, 
-            bg=Config.COLORS['toolbar_bg'], 
-            bd=0, 
-            highlightthickness=1, 
-            highlightbackground=Config.COLORS['border_enabled'], 
-            padx=Config.LAYOUT['toolbar_padding_x'], 
+            parent,
+            bg=Config.COLORS['toolbar_bg'],
+            bd=0,
+            highlightthickness=1,
+            highlightbackground='#000000',
+            padx=Config.LAYOUT['toolbar_padding_x'],
             pady=Config.LAYOUT['toolbar_padding_y']
         )
         tb.place(relx=0.5, y=Config.LAYOUT['toolbar_y_offset'], anchor="n")
-        
-        # 缩放控制区域：包括放大、缩小及当前比例指示标签
-        ttk.Button(tb, text="－", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']), 
-                   style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
-        self.zoom_lbl = tk.Label(tb, text="100%", font=Config.FONTS['zoom_lbl'], 
-                                 bg=Config.COLORS['toolbar_bg'], width=6)
+
+        # 通用原生按钮样式参数
+        btn_cfg = {
+            'bg': Config.COLORS['toolbar_bg'],
+            'activebackground': '#e2e8f0',
+            'bd': 0,
+            'relief': tk.FLAT,
+            'cursor': 'hand2',
+            'font': Config.FONTS['zh_normal'],
+            'padx': 10,
+            'pady': 4,
+        }
+
+        # 1. 放大按钮
+        tk.Button(tb, text=Config.UI_TEXT['btn_zoom_in'],
+                  command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_in_factor']),
+                  **btn_cfg).pack(side=tk.LEFT, padx=2)
+
+        # 2. 当前缩放百分比指示标签
+        self.zoom_lbl = tk.Label(
+            tb, text="100%", font=Config.FONTS['zoom_lbl'],
+            bg=Config.COLORS['toolbar_bg'], width=6
+        )
         self.zoom_lbl.pack(side=tk.LEFT, padx=4)
-        ttk.Button(tb, text="＋", command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_in_factor']), 
-                   style='Zoom.Toolbutton').pack(side=tk.LEFT, padx=3)
-        
+
+        # 3. 缩小按钮
+        tk.Button(tb, text=Config.UI_TEXT['btn_zoom_out'],
+                  command=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']),
+                  **btn_cfg).pack(side=tk.LEFT, padx=2)
+
         # 垂直分割线
-        tk.Frame(tb, width=1, bg=Config.COLORS['toolbar_divider'], height=Config.LAYOUT['toolbar_divider_height']).pack(side=tk.LEFT, padx=Config.LAYOUT['toolbar_divider_padx'])
-        
-        # 适应屏幕与重置比例控制按钮
-        ttk.Button(tb, text=Config.UI_TEXT['btn_fit'], command=self.center_view, 
-                   style='Toolbutton').pack(side=tk.LEFT, padx=4)
-        ttk.Button(tb, text=Config.UI_TEXT['btn_reset_view'], command=self.reset_view, 
-                   style='Toolbutton').pack(side=tk.LEFT, padx=4)
+        tk.Frame(
+            tb, width=1, bg=Config.COLORS['toolbar_divider'],
+            height=Config.LAYOUT['toolbar_divider_height']
+        ).pack(side=tk.LEFT, padx=Config.LAYOUT['toolbar_divider_padx'])
+
+        # 4. 拖动模式切换按钮（按下后保持 SUNKEN 凹陷状态）
+        self._drag_mode = True  # 默认启用拖动模式
+        self.drag_btn = tk.Button(
+            tb, text=Config.UI_TEXT['btn_drag'],
+            command=self._toggle_drag_mode,
+            **{**btn_cfg, 'relief': tk.SUNKEN, 'bg': '#0078d4', 'fg': '#ffffff', 'activebackground': '#005a9e', 'activeforeground': '#ffffff'}
+        )
+        self.drag_btn.pack(side=tk.LEFT, padx=2)
+
+        # 5. 重置 100% 比例按钮
+        tk.Button(tb, text=Config.UI_TEXT['btn_reset_view'],
+                  command=self.reset_view, **btn_cfg).pack(side=tk.LEFT, padx=2)
+
+        # 6. 适应窗口按钮
+        tk.Button(tb, text=Config.UI_TEXT['btn_fit'],
+                  command=self.fit_view, **btn_cfg).pack(side=tk.LEFT, padx=2)
+
+        # 绑定悬浮显灰效果 (官方 API 颜色 SystemButtonFace)
+        def on_enter(e):
+            btn = e.widget
+            if btn == getattr(self, 'drag_btn', None) and getattr(self, '_drag_mode', False):
+                return
+            btn.config(bg='SystemButtonFace')
+            
+        def on_leave(e):
+            btn = e.widget
+            if btn == getattr(self, 'drag_btn', None) and getattr(self, '_drag_mode', False):
+                return
+            btn.config(bg=Config.COLORS['toolbar_bg'])
+
+        for child in tb.winfo_children():
+            if isinstance(child, tk.Button):
+                child.bind("<Enter>", on_enter)
+                child.bind("<Leave>", on_leave)
 
     # --- 核心渲染驱动与防抖管道 ---
 
@@ -318,6 +369,10 @@ class CRCLabApp:
             'ext_right': self.line_ext_right_var.get(),
             'curve_span_left': self.curve_span_left_var.get(),
             'curve_span_right': self.curve_span_right_var.get(),
+            'bold_zeros': self.bold_zeros_var.get(),
+            'bold_divisor': self.bold_divisor_var.get(),
+            'bold_quotient': self.bold_quotient_var.get(),
+            'bold_dividend': self.bold_dividend_var.get(),
             **{k: getattr(self, k) for k in Config.DEFAULT_COLORS}
         }
         return ctx
@@ -350,15 +405,58 @@ class CRCLabApp:
         # 居中平移视口后，立即重新更新背景棋盘格图元的位置
         self._update_bg_position()
 
+    def fit_view(self):
+        """ 自动计算最佳缩放比例，使图解完整显示在当前画布可视区域内 """
+        if not hasattr(self, 'photo_img') or not self.photo_img:
+            return
+            
+        # 预留 40 像素的内边距，防止图像完全贴边
+        cw = self.canvas.winfo_width() - 40
+        ch = self.canvas.winfo_height() - 40
+        
+        if cw <= 0 or ch <= 0:
+            return
+            
+        # 还原计算 view_scale=1.0 时的原始逻辑尺寸
+        orig_w = self.photo_img.width() / self.view_scale
+        orig_h = self.photo_img.height() / self.view_scale
+        
+        if orig_w <= 0 or orig_h <= 0:
+            return
+            
+        # 按照宽高计算缩放比例，取较小值以保证两个方向都能放下
+        target_scale = min(cw / orig_w, ch / orig_h)
+        
+        # 将缩放比例限制在配置允许的最小与最大范围内
+        target_scale = max(Config.LAYOUT['zoom_min'], min(Config.LAYOUT['zoom_max'], target_scale))
+        
+        self.view_scale = target_scale
+        self.update_zoom_display()
+        self.generate(auto_center=True)
+
     def reset_view(self):
         self.view_scale = 1.0
         self.update_zoom_display()
         self.generate(auto_center=True)
 
+    def _toggle_drag_mode(self):
+        """ 切换拖动模式的开关状态，并更新按钮视觉 """
+        self._drag_mode = not self._drag_mode
+        if self._drag_mode:
+            self.drag_btn.config(relief=tk.SUNKEN, bg='#0078d4', fg='#ffffff')
+            self.canvas.config(cursor="hand2")
+        else:
+            self.drag_btn.config(relief=tk.FLAT, bg=Config.COLORS['toolbar_bg'], fg='black')
+            self.canvas.config(cursor="")
+
     def start_pan(self, event):
+        if not getattr(self, '_drag_mode', True):
+            return
         self.canvas.scan_mark(event.x, event.y)
 
     def do_pan(self, event):
+        if not getattr(self, '_drag_mode', True):
+            return
         self.canvas.scan_dragto(event.x, event.y, gain=1)
         self._update_bg_position()
 
@@ -406,7 +504,9 @@ class CRCLabApp:
         mapping = {
             'font_size': 'font_size_var', 'h_spacing': 'spacing_var', 'v_spacing': 'v_spacing_var',
             'line_width': 'line_width_var', 'padding': 'padding_var', 'ext_left': 'line_ext_left_var',
-            'ext_right': 'line_ext_right_var', 'span_left': 'curve_span_left_var', 'span_right': 'curve_span_right_var'
+            'ext_right': 'line_ext_right_var', 'span_left': 'curve_span_left_var', 'span_right': 'curve_span_right_var',
+            'bold_zeros': 'bold_zeros_var', 'bold_divisor': 'bold_divisor_var',
+            'bold_quotient': 'bold_quotient_var', 'bold_dividend': 'bold_dividend_var'
         }
         for key, var_name in mapping.items():
             if hasattr(self, var_name):

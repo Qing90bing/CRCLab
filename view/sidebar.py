@@ -150,15 +150,17 @@ class SidebarPanel(tk.Frame):
         parent.pack(fill=tk.X, pady=(0, 15))
         
         color_attrs = [
-            ('bg_block_color', Config.UI_TEXT['label_bg_block_color'], True),
-            ('bg_digit_color', Config.UI_TEXT['label_bg_digit_color'], False),
-            ('digit_color', Config.UI_TEXT['label_digit_color'], False),
-            ('line_color', Config.UI_TEXT['label_line_color'], False),
-            ('sheet_bg_color', Config.UI_TEXT['label_sheet_bg_color'], True)
+            ('bg_block_color', Config.UI_TEXT['label_bg_block_color'], True, None),
+            ('bg_digit_color', Config.UI_TEXT['label_bg_digit_color'], False, self.app.bold_zeros_var),
+            ('divisor_color', Config.UI_TEXT['label_divisor_color'], False, self.app.bold_divisor_var),
+            ('quotient_color', Config.UI_TEXT['label_quotient_color'], False, self.app.bold_quotient_var),
+            ('dividend_color', Config.UI_TEXT['label_dividend_color'], False, self.app.bold_dividend_var),
+            ('line_color', Config.UI_TEXT['label_line_color'], False, None),
+            ('sheet_bg_color', Config.UI_TEXT['label_sheet_bg_color'], True, None)
         ]
         
         self.color_rows = {}
-        for attr, text, allow_trans in color_attrs:
+        for attr, text, allow_trans, bold_var in color_attrs:
             row = ColorSwatchRow(
                 parent, 
                 text, 
@@ -166,7 +168,9 @@ class SidebarPanel(tk.Frame):
                 initial_color=getattr(self.app, attr), 
                 on_click_callback=self.app.pick_color,
                 on_transparent_toggle=self.app.on_transparent_toggle,
-                allow_transparent=allow_trans
+                allow_transparent=allow_trans,
+                bold_var=bold_var,
+                on_bold_toggle=lambda: self.app.generate(auto_center=False)
             )
             row.pack(fill=tk.X, pady=6)
             self.color_rows[attr] = row

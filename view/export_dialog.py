@@ -42,11 +42,41 @@ class ExportDialog:
         self.dlg.after(100, self._update_preview)
 
     def _setup_geometry(self):
-        """ 根据物理屏幕分辨率自适应居中显示 """
+        """ 根据物理屏幕分辨率及实际工作区（排除任务栏）自适应居中显示 """
         sw, sh = self.app.root.winfo_screenwidth(), self.app.root.winfo_screenheight()
-        w = min(Config.LAYOUT['export_max_w'], int(sw * Config.LAYOUT['export_dialog_w_ratio']))
-        h = min(Config.LAYOUT['export_max_h'], int(sh * Config.LAYOUT['export_dialog_h_ratio']))
-        self.dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+        
+        # 获取实际工作区大小（排除任务栏）
+        work_x, work_y, work_w, work_h = 0, 0, sw, sh
+        try:
+            import ctypes
+            from ctypes import wintypes
+            rect = wintypes.RECT()
+            # SPI_GETWORKAREA = 0x30
+            ctypes.windll.user32.SystemParametersInfoW(0x30, 0, ctypes.byref(rect), 0)
+            work_x = rect.left
+            work_y = rect.top
+            work_w = rect.right - rect.left
+            work_h = rect.bottom - rect.top
+        except Exception:
+            pass
+
+        # 严格按照设定的屏幕比例显示，以实际工作区为基准计算
+        w = int(work_w * Config.LAYOUT['export_dialog_w_ratio'])
+        h = int(work_h * Config.LAYOUT['export_dialog_h_ratio'])
+        
+        # 确保不小于最小限制
+        w = max(Config.LAYOUT['export_min_w'], w)
+        h = max(Config.LAYOUT['export_min_h'], h)
+        
+        # 确保不超出工作区可见区域
+        w = min(work_w, w)
+        h = min(work_h, h)
+        
+        # 在实际工作区内居中
+        pos_x = work_x + (work_w - w) // 2
+        pos_y = work_y + (work_h - h) // 2
+        
+        self.dlg.geometry(f"{w}x{h}+{pos_x}+{pos_y}")
         self.dlg.minsize(Config.LAYOUT['export_min_w'], Config.LAYOUT['export_min_h'])
 
     def _build_layout(self):

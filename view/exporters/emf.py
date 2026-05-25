@@ -157,8 +157,14 @@ class EMFInterceptDraw:
         color = self._rgb_to_colorref(fill)
         
         font_h = max(1, int((font.size if font else 22) / self.sf))
+        
+        is_bold = False
+        if hasattr(font, 'path') and isinstance(font.path, str) and 'bd' in font.path.lower():
+            is_bold = True
+        weight = 700 if is_bold else Config.GDI['fw_normal']
+        
         gdi_font = self.gdi.CreateFontW(
-            -font_h, 0, 0, 0, Config.GDI['fw_normal'], 0, 0, 0,
+            -font_h, 0, 0, 0, weight, 0, 0, 0,
             Config.GDI['default_charset'], 0, 0, Config.GDI['antialiased_quality'],
             0, Config.FONTS['gdi_family']
         )

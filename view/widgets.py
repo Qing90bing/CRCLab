@@ -205,7 +205,7 @@ class ColorSwatchRow(tk.Frame):
     色彩配置行。
     左侧显示名称标签，右侧显示对齐的色彩框，支持拾色交互与透明联动。
     """
-    def __init__(self, parent, text, attr, initial_color, on_click_callback, on_transparent_toggle=None, allow_transparent=False, bg=None):
+    def __init__(self, parent, text, attr, initial_color, on_click_callback, on_transparent_toggle=None, allow_transparent=False, bg=None, bold_var=None, on_bold_toggle=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
         super().__init__(parent, bg=bg_color)
         
@@ -253,6 +253,16 @@ class ColorSwatchRow(tk.Frame):
             # 若初始化时就是透明，绘制棋盘格
             if self.is_transparent_var.get():
                 self.after(10, self._draw_checkerboard)
+                
+        # 加粗复选框
+        if bold_var:
+            self.bold_check = ttk.Checkbutton(
+                self,
+                text="加粗",
+                variable=bold_var,
+                command=on_bold_toggle
+            )
+            self.bold_check.pack(side=tk.RIGHT, padx=(0, 10), anchor=tk.E)
                 
     def _draw_checkerboard(self):
         """ 绘制灰白相间的棋盘格，指示透明 """

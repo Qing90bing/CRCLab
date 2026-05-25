@@ -14,10 +14,12 @@ class Config:
     
     # 默认配色方案：采用现代化的柔和色调
     DEFAULT_COLORS = {
-        'digit_color': "#000000",      # 标准数字颜色（主要用于被除数和商）
+        'divisor_color': "#000000",    # 左侧除数数字颜色
+        'quotient_color': "#000000",   # 顶部商数字颜色
+        'dividend_color': "#000000",   # 其他主体部分（被除数、计算过程、余数）颜色
         'bg_block_color': "#f3f4f6",   # 补零区域的背景块颜色（淡灰色）
         'bg_digit_color': "#000000",   # 补零区域内的数字颜色
-        'line_color': "#374151",       # 除法横线、弧线及边框颜色
+        'line_color': "#000000",       # 除法横线、弧线及边框颜色
         'sheet_bg_color': "#ffffff"    # 模拟纸张的背景底色
     }
 
@@ -86,8 +88,11 @@ class Config:
         'span_right': "弧线右偏移:",
         'color_section': "配色方案:",
         'btn_reset_color': "恢复默认配色",
-        'btn_fit': "适应屏幕",
-        'btn_reset_view': "重置比例",
+        'btn_zoom_in': "＋ 放大",
+        'btn_zoom_out': "－ 缩小",
+        'btn_drag': "✋ 拖动",
+        'btn_reset_view': "⛶ 100%",
+        'btn_fit': "▢ 适应窗口",
         'btn_reset_params': "恢复默认参数",
         'sidebar_title': "功能配置",
         'input_section': "基础数据配置:",
@@ -97,7 +102,9 @@ class Config:
         'btn_export': "导出图表",
         'label_bg_block_color': "补零区域背景块:",
         'label_bg_digit_color': "补零标记文字色:",
-        'label_digit_color': "除数被除数数字:",
+        'label_divisor_color': "左侧除数颜色:",
+        'label_quotient_color': "顶部商颜色:",
+        'label_dividend_color': "主体数字颜色:",
         'label_line_color': "长除除线及弧线:",
         'label_sheet_bg_color': "图表纸张底版色:",
         
@@ -166,8 +173,6 @@ class Config:
         'zoom_max': 10.0,                # 视角缩放最大值
         
         # 导出弹窗及物理像素边界
-        'export_max_w': 1560,            # 导出对话框物理宽度上限
-        'export_max_h': 980,             # 导出对话框物理高度上限
         'export_min_w': 900,             # 导出对话框最小物理宽度
         'export_min_h': 600,             # 导出对话框最小物理高度
         
@@ -217,7 +222,11 @@ class Config:
         'ext_left': 0,           # 线条左端延伸
         'ext_right': 0,          # 线条右端延伸
         'span_left': -0.5,       # 弧线跨度调整
-        'span_right': 0.0        # 弧线位置偏移
+        'span_right': 0.0,       # 弧线位置偏移
+        'bold_zeros': False,     # 补零标记加粗
+        'bold_divisor': False,   # 左侧除数加粗
+        'bold_quotient': False,  # 顶部商加粗
+        'bold_dividend': False   # 主体数字加粗
     }
 
     # 默认导出配置参数表：统一控制初始业务值
