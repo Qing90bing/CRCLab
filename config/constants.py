@@ -23,7 +23,7 @@ class Config:
 
     COLORS = {
         'main_bg': "#f3f4f6",           # 主窗口底色
-        'sidebar_bg': "#ffffff",        # 侧边栏容器背景
+        'sidebar_bg': "SystemButtonFace",        # 侧边栏容器背景
         'sidebar_title_fg': "#1e293b",  # 侧边栏主标题颜色
         'primary': "#3b82f6",           # brand主色调（高亮勾选框、主按钮）
         'divider': "#e5e7eb",           # 分割线颜色
@@ -90,6 +90,7 @@ class Config:
         'btn_reset_view': "重置比例",
         'btn_reset_params': "恢复默认参数",
         'sidebar_title': "功能配置",
+        'input_section': "基础数据配置:",
         'style_section': "排版布局参数:",
         
         # 主界面配色标签说明文字
@@ -102,16 +103,16 @@ class Config:
         
         # 导出对话框文字
         'export_title': "导出图表",
-        'export_preview': "导出预览",
+        'export_preview': "图表预览",
         'export_params': "导出参数",
         'export_format': "格式",
-        'export_quality': "画质",
+        'export_quality': "像素倍率",
         'export_dpi': "DPI",
         'export_color': "颜色",
         'export_show_border': "显示纸张边框",
         'export_dir': "导出目录",
         'export_btn_browse': "浏览目录",
-        'export_info_group': "导出估算信息",
+        'export_info_group': "预估信息",
         'export_width_placeholder': "导出宽度: -- 像素",
         'export_height_placeholder': "导出高度: -- 像素",
         'export_size_placeholder': "预估大小: -- KB",
@@ -124,7 +125,7 @@ class Config:
         'card_input_title': "输入特征分析",
         'card_stats_title': "运算步骤统计",
         'card_checksum_title': "校验输出结果",
-        'card_frame_title': "发送数据帧 (Code Word)",
+        'card_frame_title': "发送数据帧",
         
         # 关于软件相关文本
         'btn_about': "关于软件",
@@ -144,8 +145,8 @@ class Config:
         'section_pady': 25,      # 各个逻辑功能区之间的垂直间距
         'canvas_bg': "#1e293b",  # 画布容器的背景（暗色调）
         'toolbar_bg': "#ffffff", # 工具栏背景
-        'export_dialog_w_ratio': 0.88,  # 导出对话框对物理屏幕宽度的占比
-        'export_dialog_h_ratio': 0.88,  # 导出对话框对物理屏幕高度的占比
+        'export_dialog_w_ratio': 0.75,   # 导出对话框对物理屏幕宽度的占比
+        'export_dialog_h_ratio': 0.75,   # 导出对话框对物理屏幕高度的占比
         'export_side_width': 450,        # 导出侧边控制栏宽度
         'export_preview_bg': "#f8fafc",  # 导出预览区背景底色
         'export_ctrl_bg': "#ffffff",     # 导出参数控制区背景底色
@@ -167,8 +168,8 @@ class Config:
         # 导出弹窗及物理像素边界
         'export_max_w': 1560,            # 导出对话框物理宽度上限
         'export_max_h': 980,             # 导出对话框物理高度上限
-        'export_min_w': 1200,            # 导出对话框最小物理宽度
-        'export_min_h': 750,             # 导出对话框最小物理高度
+        'export_min_w': 900,             # 导出对话框最小物理宽度
+        'export_min_h': 600,             # 导出对话框最小物理高度
         
         # SSAA 抗锯齿物理渲染控制参数
         'temp_canvas_base': 2500,        # SSAA 公式临时高分画布基准大小
@@ -222,8 +223,8 @@ class Config:
     # 默认导出配置参数表：统一控制初始业务值
     EXPORT_VALUES = {
         'format': "png",                          # 默认物理导出格式
-        'quality': "标清默认尺寸",                # 默认物理画面缩放倍数
-        'dpi': 96,                                # 默认物理 DPI 密度
+        'quality': "默认尺寸",                # 默认物理画面缩放倍数
+        'dpi': 300,                                # 默认物理 DPI 密度
         'color': "彩色",                          # 默认物理导出色彩模式
         'show_border': False,                      # 默认是否绘制纸张框线
         'dir_mode': "当前目录（导出结果）",       # 默认存储目标目录类型
@@ -234,27 +235,26 @@ class Config:
     EXPORT_OPTIONS = {
         'formats': ["png", "jpg", "svg", "pdf", "emf"],
         'qualities': [
-            "标清默认尺寸", "标清默认尺寸2倍",
-            "标清默认尺寸3倍", "标清默认尺寸4倍"
+            "默认尺寸", "默认尺寸2倍",
+            "默认尺寸3倍", "默认尺寸4倍"
         ],
         'dpis': [72, 96, 150, 200, 300, 600],
         'colors': ["彩色", "灰度", "黑白"],
         'dir_modes': ["当前目录（导出结果）", "自定义目录"]
     }
 
-    # 字体配置：定义不同用途的字体族
     FONTS = {
-        'zh_bold': ("SimSun", 11, "bold"),   # 中文标题加粗
-        'zh_normal': ("SimSun", 11),         # 中文正文
-        'en_main': ("Times New Roman", 12),   # 核心数据字体，采用衬线体以模拟公式样式
+        'zh_bold': ("SimSun", 10, "bold"),   # 中文标题加粗
+        'zh_normal': ("SimSun", 10),         # 中文正文
+        'en_main': ("Times New Roman", 10),   # 核心数据字体，采用衬线体以模拟公式样式
         
         # 扩展 UI 通用组件字体
-        'side_title': ("SimSun", 16, "bold"),    # 侧边栏主标题字体
+        'side_title': ("SimSun", 12, "bold"),    # 侧边栏主标题字体
         'combo': ("SimSun", 10),                 # 下拉选择框字体
-        'btn_small': ("SimSun", 9),              # 侧边栏常规小按钮字体
-        'zoom_btn': ("Arial", 13, "bold"),       # 缩放控制按钮字体
-        'zoom_lbl': ("Times New Roman", 12, "bold"),       # 顶部比例显示字体
-        'fallback_families': ["times.ttf", "times", "arial.ttf", "arial", "simsun.ttc", "simsun"], # 字体回退列表
+        'btn_small': ("SimSun", 10),              # 侧边栏常规小按钮字体
+        'zoom_btn': ("Times New Roman", 12, "bold"),       # 缩放控制按钮字体
+        'zoom_lbl': ("Times New Roman", 10, "bold"),       # 顶部比例显示字体
+        'fallback_families': ["times.ttf", "times", "simsun.ttc", "simsun"], # 字体回退列表
         'gdi_family': "Times New Roman",         # Windows GDI 矢量导出默认字体
     }
 

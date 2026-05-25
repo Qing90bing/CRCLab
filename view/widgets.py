@@ -43,7 +43,8 @@ class ModernCheckbutton(tk.Frame):
 class ModernScale(tk.Frame):
     """
     滑块参数调节器封装。
-    采用 ttk.Scale 实现，并在右侧实时显示当前数值。
+    采用 ttk.Scale 实现，并在左右两侧添加加减微调按钮，
+    且完全接管点击与拖拽事件，实现无偏移的精准绝对定位。
     """
     def __init__(self, parent, label, from_, to, var, resolution=1, command=None, bg=None):
         bg_color = bg if bg else Config.COLORS['sidebar_bg']
@@ -61,16 +62,46 @@ class ModernScale(tk.Frame):
         self.val_lbl = tk.Label(header, text=self._format_value(var.get()), bg=bg_color, fg=Config.COLORS['primary'], font=Config.FONTS['en_main'])
         self.val_lbl.pack(side=tk.RIGHT)
         
+        # 水平控制容器，容纳 减号按钮、滑块、加号按钮
+        control_frame = tk.Frame(self, bg=bg_color)
+        control_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # 自动配置小按钮样式，确保小巧精致
+        style = ttk.Style()
+        style.configure('ScaleBtn.TButton', font=('SimSun', 10, 'bold'), padding=(2, 1), width=2)
+        
+        # 减号按钮
+        self.dec_btn = ttk.Button(
+            control_frame, 
+            text="－", 
+            style='ScaleBtn.TButton', 
+            command=self._decrement
+        )
+        self.dec_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
         # 使用 ttk.Scale 以获得更好的滑块样式
         self.scale = ttk.Scale(
-            self, 
+            control_frame, 
             from_=from_, 
             to=to, 
             orient=tk.HORIZONTAL, 
             variable=var, 
             command=self._on_scale_move
         )
-        self.scale.pack(fill=tk.X, pady=(0, 10))
+        self.scale.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        
+        # 加号按钮
+        self.inc_btn = ttk.Button(
+            control_frame, 
+            text="＋", 
+            style='ScaleBtn.TButton', 
+            command=self._increment
+        )
+        self.inc_btn.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # 完美接管鼠标点击与拖动，消灭 Tkinter 默认 trough 点击的偏移 bug
+        self.scale.bind("<Button-1>", self._on_scale_click)
+        self.scale.bind("<B1-Motion>", self._on_scale_drag)
 
     def _format_value(self, val):
         """ 格式化数值显示 """
@@ -79,7 +110,6 @@ class ModernScale(tk.Frame):
             if self.resolution >= 1:
                 return f"{int(round(f_val))}"
             else:
-                # 针对 0.1 步长的小数保留 1 位小数
                 return f"{f_val:.1f}"
         except Exception:
             return str(val)
@@ -89,6 +119,85 @@ class ModernScale(tk.Frame):
         self.val_lbl.config(text=self._format_value(val))
         if self.user_command:
             self.user_command(val)
+
+    def _align_to_resolution(self, val):
+        """ 辅助方法：将输入值对齐到 resolution 步长，并限制在 from_ 和 to_ 范围内 """
+        try:
+            val = float(val)
+            from_ = float(self.scale.cget("from"))
+            to = float(self.scale.cget("to"))
+            min_val = min(from_, to)
+            max_val = max(from_, to)
+            
+            # 对齐步长
+            if self.resolution:
+                val = round(val / self.resolution) * self.resolution
+                
+            # 限制范围边界
+            val = max(min_val, min(max_val, val))
+            
+            # 返回整型或高精度浮点
+            if self.resolution >= 1:
+                return int(round(val))
+            else:
+                return round(val, 2)
+        except Exception:
+            return val
+
+    def _update_val_from_x(self, x):
+        """ 核心数学逻辑：根据鼠标在滑块中的 X 坐标计算出精确的目标物理值 """
+        try:
+            width = self.scale.winfo_width()
+            if width > 0:
+                from_ = float(self.scale.cget("from"))
+                to = float(self.scale.cget("to"))
+                fraction = max(0.0, min(1.0, float(x) / width))
+                val = from_ + fraction * (to - from_)
+                val = self._align_to_resolution(val)
+                self.var.set(val)
+                self._on_scale_move(val)
+        except Exception:
+            pass
+
+    def _on_scale_click(self, event):
+        self._update_val_from_x(event.x)
+        return "break"
+
+    def _on_scale_drag(self, event):
+        self._update_val_from_x(event.x)
+        return "break"
+
+    def _decrement(self):
+        """ 微调变小一格 """
+        try:
+            curr = float(self.var.get())
+            step = float(self.resolution)
+            from_ = float(self.scale.cget("from"))
+            to = float(self.scale.cget("to"))
+            
+            direction = -1 if from_ < to else 1
+            new_val = curr + direction * step
+            new_val = self._align_to_resolution(new_val)
+            self.var.set(new_val)
+            self._on_scale_move(new_val)
+        except Exception:
+            pass
+
+    def _increment(self):
+        """ 微调变大一格 """
+        try:
+            curr = float(self.var.get())
+            step = float(self.resolution)
+            from_ = float(self.scale.cget("from"))
+            to = float(self.scale.cget("to"))
+            
+            direction = 1 if from_ < to else -1
+            new_val = curr + direction * step
+            new_val = self._align_to_resolution(new_val)
+            self.var.set(new_val)
+            self._on_scale_move(new_val)
+        except Exception:
+            pass
 
 
 class ColorSwatchRow(tk.Frame):
@@ -132,15 +241,12 @@ class ColorSwatchRow(tk.Frame):
         # 如果支持透明，在色彩块左侧加透明复选框
         if self.allow_transparent:
             self.is_transparent_var = tk.BooleanVar(value=(initial_color in ("transparent", "none")))
-            self.trans_check = tk.Checkbutton(
+            # 使用现代的原生 ttk.Checkbutton 以优化系统勾选视觉体验
+            self.trans_check = ttk.Checkbutton(
                 self, 
                 text="透明", 
                 variable=self.is_transparent_var, 
-                command=self._on_trans_toggle,
-                bg=bg_color, 
-                font=Config.FONTS['zh_normal'],
-                activebackground=bg_color,
-                highlightthickness=0
+                command=self._on_trans_toggle
             )
             self.trans_check.pack(side=tk.RIGHT, padx=(0, 10), anchor=tk.E)
             

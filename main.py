@@ -130,6 +130,15 @@ class CRCLabApp:
         self.style.configure('TCombobox', padding=(10, 6))
         self.style.configure('TCombobox', font=Config.FONTS['combo'])
         
+        # 修复复选框与原生 LabelFrame 标题默认英文字体的问题
+        self.style.configure('TCheckbutton', font=Config.FONTS['zh_normal'])
+        self.style.configure('TLabelframe.Label', font=Config.FONTS['zh_bold'])
+        self.style.configure('TLabel', font=Config.FONTS['zh_normal'])
+        
+        # 终极保险：强行接管系统中所有原生 Tk 组件及 Combobox 弹出列表的字体
+        self.root.option_add('*Font', Config.FONTS['zh_normal'])
+        self.root.option_add('*TCombobox*Listbox.font', Config.FONTS['combo'])
+        
         # 常规按钮样式，统一 padding 配置
         self.style.configure('TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
         

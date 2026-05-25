@@ -76,26 +76,32 @@ class DashboardPanel(tk.Frame):
         gap = Config.LAYOUT['card_gap']
         bg_color = Config.COLORS['main_bg']
         
+        # 获取 native 主题背景色，确保文字背景与系统主题浑然一体
+        try:
+            native_bg = self.tk.call("ttk::style", "lookup", "TFrame", "-background")
+        except Exception:
+            native_bg = "#ffffff"
+
         # Card 1: 输入特征分析 (全部右对齐)
         self.card1 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_input_title'])
         self.card1.grid(row=0, column=0, sticky="nsew", padx=(0, gap), pady=5)
-        self.input_lbl1 = self._add_metric_row(self.card1, "数据长度", "--", "位", justify=tk.RIGHT)
-        self.input_lbl2 = self._add_metric_row(self.card1, "多项式", "--", "", justify=tk.RIGHT)
-        self.input_lbl3 = self._add_metric_row(self.card1, "除数十六进制", "--", "", justify=tk.RIGHT)
+        self.input_lbl1 = self._add_metric_row(self.card1, "数据长度", "--", "位", native_bg=native_bg, justify=tk.RIGHT)
+        self.input_lbl2 = self._add_metric_row(self.card1, "多项式", "--", "", native_bg=native_bg, justify=tk.RIGHT)
+        self.input_lbl3 = self._add_metric_row(self.card1, "除数十六进制", "--", "", native_bg=native_bg, justify=tk.RIGHT)
         
         # Card 2: 运算步骤统计 (全部右对齐)
         self.card2 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_stats_title'])
         self.card2.grid(row=0, column=1, sticky="nsew", padx=gap, pady=5)
-        self.stats_lbl1 = self._add_metric_row(self.card2, "二进制商", "--", "", justify=tk.RIGHT)
-        self.stats_lbl2 = self._add_metric_row(self.card2, "运算步数", "--", "步", justify=tk.RIGHT)
+        self.stats_lbl1 = self._add_metric_row(self.card2, "二进制商", "--", "", native_bg=native_bg, justify=tk.RIGHT)
+        self.stats_lbl2 = self._add_metric_row(self.card2, "运算步数", "--", "步", native_bg=native_bg, justify=tk.RIGHT)
 
         # Card 3: 校验输出结果 (全部右对齐)
         self.card3 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_checksum_title'])
         self.card3.grid(row=0, column=2, sticky="nsew", padx=gap, pady=5)
-        self.checksum_lbl1 = self._add_metric_row(self.card3, "校验码", "--", "", is_highlight=True, justify=tk.RIGHT)
-        self.checksum_lbl2 = self._add_metric_row(self.card3, "十六进制", "--", "", is_highlight=True, justify=tk.RIGHT)
+        self.checksum_lbl1 = self._add_metric_row(self.card3, "校验码", "--", "", native_bg=native_bg, is_highlight=True, justify=tk.RIGHT)
+        self.checksum_lbl2 = self._add_metric_row(self.card3, "十六进制", "--", "", native_bg=native_bg, is_highlight=True, justify=tk.RIGHT)
 
-        # Card 4: 发送数据帧 (Code Word)
+        # Card 4: 发送数据帧
         self.card4 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_frame_title'])
         self.card4.grid(row=0, column=3, sticky="nsew", padx=(gap, 0), pady=5)
         
@@ -103,11 +109,7 @@ class DashboardPanel(tk.Frame):
         self.center_frame = ttk.Frame(self.card4)
         self.center_frame.pack(expand=True, fill=tk.BOTH, padx=12, pady=10)
         
-        # 获取 native 主题背景色，确保 ReadonlyEntry 与背景浑然一体
-        try:
-            native_bg = self.center_frame.tk.call("ttk::style", "lookup", "TFrame", "-background")
-        except Exception:
-            native_bg = "#ffffff"
+        # native_bg 已在顶部获取，此处无需重复获取
             
         # 垂直与水平居中容器
         self.inner_center = ttk.Frame(self.center_frame)
@@ -125,7 +127,7 @@ class DashboardPanel(tk.Frame):
         self.frame_entry = ReadonlyEntry(
             self.inner_center, 
             "--", 
-            font=("Consolas", 13, "bold"), 
+            font=("Times New Roman", 13, "bold"), 
             fg=Config.COLORS['text_dark'], 
             bg=native_bg,
             width=24,
@@ -133,9 +135,9 @@ class DashboardPanel(tk.Frame):
         )
         self.frame_entry.pack(anchor=tk.CENTER, fill=tk.X)
 
-    def _add_metric_row(self, parent_frame, label_text, val_text, unit_text, is_highlight=False, justify=tk.RIGHT):
+    def _add_metric_row(self, parent_frame, label_text, val_text, unit_text, native_bg="#ffffff", is_highlight=False, justify=tk.RIGHT):
         """ 统一添加支持右对齐对齐的 Windows 属性行 """
-        bg_color = Config.COLORS['main_bg']
+        bg_color = native_bg
         
         row_frame = tk.Frame(parent_frame, bg=bg_color)
         row_frame.pack(fill=tk.X, anchor=tk.W, padx=12, pady=6)
@@ -155,7 +157,7 @@ class DashboardPanel(tk.Frame):
         
         # 根据高亮类型选择前景色
         fg_color = Config.COLORS['primary'] if is_highlight else Config.COLORS['text_dark']
-        font_family = "Times New Roman" if label_text == "多项式" else "Consolas"
+        font_family = "Times New Roman"
         
         if unit_text:
             # 如果带单位，右侧先 pack 单位

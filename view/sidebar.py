@@ -73,34 +73,47 @@ class SidebarPanel(tk.Frame):
 
     def _init_input_section(self):
         """ 初始化数据位与生成多项式输入控制区 """
-        parent = self.inner_panel
+        parent = tk.LabelFrame(
+            self.inner_panel, 
+            text=Config.UI_TEXT.get('input_section', '基础数据配置:'), 
+            bg=Config.COLORS['sidebar_bg'],
+            fg=Config.COLORS['sidebar_title_fg'],
+            font=Config.FONTS['zh_bold'],
+            padx=12, pady=10
+        )
+        parent.pack(fill=tk.X, pady=(0, 15))
         
         # 1. 原始二进制数据位输入
-        tk.Label(parent, text=Config.UI_TEXT['data_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(5, 5))
+        tk.Label(parent, text=Config.UI_TEXT['data_label'], bg=Config.COLORS['sidebar_bg']).pack(anchor=tk.W, pady=(0, 5))
         self.data_entry = ttk.Entry(parent, textvariable=self.app.data_var, font=Config.FONTS['en_main'])
-        self.data_entry.pack(fill=tk.X, pady=(0, Config.LAYOUT['entry_pady']), ipady=Config.LAYOUT['entry_ipady'])
+        self.data_entry.pack(fill=tk.X, pady=(0, 5))
         self.data_entry.bind("<Return>", lambda e: self.app.generate(auto_center=True))
 
         # 2. 生成多项式输入
-        tk.Label(parent, text=Config.UI_TEXT['poly_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(5, 5))
+        tk.Label(parent, text=Config.UI_TEXT['poly_label'], bg=Config.COLORS['sidebar_bg']).pack(anchor=tk.W, pady=(5, 5))
         pf = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
         pf.pack(fill=tk.X, pady=(0, 5))
         self.poly_entry = ttk.Entry(pf, textvariable=self.app.divisor_var, font=Config.FONTS['en_main'])
-        self.poly_entry.pack(side=tk.LEFT, expand=True, fill=tk.X, ipady=Config.LAYOUT['entry_ipady'])
+        self.poly_entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
         self.poly_entry.bind("<Return>", lambda e: self.app.generate(auto_center=True))
         
         # 3. 标准预设多项式快速选择
         self.poly_combo = ttk.Combobox(parent, values=list(Config.STD_POLYS.keys()), state="readonly", font=Config.FONTS['btn_small'])
         self.poly_combo.set(list(Config.STD_POLYS.keys())[0])
-        self.poly_combo.pack(fill=tk.X, pady=(0, Config.LAYOUT['entry_pady']))
+        self.poly_combo.pack(fill=tk.X, pady=(0, 5))
         self.poly_combo.bind("<<ComboboxSelected>>", self.app.on_poly_selected)
-        
-        tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
 
     def _init_style_section(self):
         """ 初始化排版与长除法间距滑块区 """
-        parent = self.inner_panel
-        tk.Label(parent, text=Config.UI_TEXT['style_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
+        parent = tk.LabelFrame(
+            self.inner_panel, 
+            text=Config.UI_TEXT['style_section'], 
+            bg=Config.COLORS['sidebar_bg'],
+            fg=Config.COLORS['sidebar_title_fg'],
+            font=Config.FONTS['zh_bold'],
+            padx=12, pady=10
+        )
+        parent.pack(fill=tk.X, pady=(0, 15))
         
         # 排版微调控制滑块清单，统一使用 ModernScale 精美小部件构建
         styles = [
@@ -122,12 +135,19 @@ class SidebarPanel(tk.Frame):
             self.scales.append(scale)
         
         # 参数一键恢复默认按钮
-        ttk.Button(parent, text=Config.UI_TEXT['btn_reset_params'], command=self.app.reset_params).pack(fill=tk.X, pady=(5, Config.LAYOUT['section_pady']))
+        ttk.Button(parent, text=Config.UI_TEXT['btn_reset_params'], command=self.app.reset_params).pack(fill=tk.X, pady=(10, 5))
 
     def _init_color_section(self):
         """ 初始化色彩配置项，并在底部渲染“导出图表”按钮 """
-        parent = self.inner_panel
-        tk.Label(parent, text=Config.UI_TEXT['color_section'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_bold']).pack(anchor=tk.W, pady=(15, 5))
+        parent = tk.LabelFrame(
+            self.inner_panel, 
+            text=Config.UI_TEXT['color_section'], 
+            bg=Config.COLORS['sidebar_bg'],
+            fg=Config.COLORS['sidebar_title_fg'],
+            font=Config.FONTS['zh_bold'],
+            padx=12, pady=10
+        )
+        parent.pack(fill=tk.X, pady=(0, 15))
         
         color_attrs = [
             ('bg_block_color', Config.UI_TEXT['label_bg_block_color'], True),
@@ -152,19 +172,17 @@ class SidebarPanel(tk.Frame):
             self.color_rows[attr] = row
             
         # 恢复默认色彩按钮
-        ttk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.app.reset_colors).pack(fill=tk.X, pady=(15, 20))
+        ttk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.app.reset_colors).pack(fill=tk.X, pady=(10, 5))
                   
-        # 分割线及“导出图表”按钮
-        tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=10)
-        ttk.Button(parent, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
+        # 导出图表按钮及底部附加信息（放在主 panel 中）
+        ttk.Button(self.inner_panel, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
                    style='Action.TButton').pack(fill=tk.X, pady=(15, 20))
 
         # 悬浮或次要按钮：“关于软件”与版权微型页脚
-        tk.Frame(parent, height=1, bg=Config.COLORS['divider']).pack(fill=tk.X, pady=(10, 15))
-        ttk.Button(parent, text=Config.UI_TEXT['btn_about'], command=self.show_about_dialog).pack(fill=tk.X)
+        ttk.Button(self.inner_panel, text=Config.UI_TEXT['btn_about'], command=self.show_about_dialog).pack(fill=tk.X)
 
         # 极细版权微标
-        tk.Label(parent, text=Config.COPYRIGHT, bg=Config.COLORS['sidebar_bg'], 
+        tk.Label(self.inner_panel, text=Config.COPYRIGHT, bg=Config.COLORS['sidebar_bg'], 
                  fg=Config.COLORS['text_muted'], font=Config.FONTS['btn_small']).pack(pady=(15, 10))
 
     def update_swatches(self):
@@ -173,8 +191,20 @@ class SidebarPanel(tk.Frame):
             row.update_color(getattr(self.app, attr))
 
     def show_about_dialog(self):
-        """ 弹出优雅且解耦的关于本软件对话框 """
-        from tkinter import messagebox
+        """ 弹出优雅的自定义关于本软件对话框，保证字体完全受控统一 """
+        dlg = tk.Toplevel(self.app.root)
+        dlg.title(Config.UI_TEXT['about_title'])
+        dlg.transient(self.app.root)
+        dlg.grab_set()
+        dlg.configure(bg=Config.COLORS['main_bg'])
+        
+        sw, sh = self.app.root.winfo_screenwidth(), self.app.root.winfo_screenheight()
+        dlg.geometry(f"460x320+{(sw-460)//2}+{(sh-320)//2}")
+        dlg.resizable(False, False)
+        
+        content = tk.Frame(dlg, bg=Config.COLORS['main_bg'], padx=25, pady=25)
+        content.pack(fill=tk.BOTH, expand=True)
+        
         about_text = (
             f"项目名称: CRC 长除法解析与验证工具 (CRCLab)\n"
             f"当前版本: {Config.VERSION}\n"
@@ -186,4 +216,16 @@ class SidebarPanel(tk.Frame):
             f" • 实时二进制长除运算结果看板\n\n"
             f"{Config.COPYRIGHT}"
         )
-        messagebox.showinfo(Config.UI_TEXT['about_title'], about_text)
+        
+        lbl = tk.Label(
+            content, 
+            text=about_text, 
+            font=Config.FONTS['zh_normal'], 
+            bg=Config.COLORS['main_bg'], 
+            justify=tk.LEFT,
+            anchor="w"
+        )
+        lbl.pack(fill=tk.X, expand=True)
+        
+        # 确认按钮
+        ttk.Button(content, text="确定", command=dlg.destroy).pack(pady=(15, 0))
