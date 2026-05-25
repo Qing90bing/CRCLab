@@ -320,7 +320,10 @@ class CRCLabApp:
         ctx = self._get_render_context()
         
         # 3. 委托 CanvasRenderer 以当前真实尺寸进行百分之百清晰的矢量渲染，彻底消灭位图拉伸模糊
-        img = self.renderer.render(data, dividend, divisor, q, rows, ctx)
+        renderer = self.renderer
+        if renderer is None:
+            return
+        img = renderer.render(data, dividend, divisor, q, rows, ctx)
         
         # 4. 在画布上渲染图像并更新滚动范围
         self.photo_img = ImageTk.PhotoImage(img)

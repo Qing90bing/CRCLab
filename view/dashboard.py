@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+from typing import Literal
 from config.constants import Config
+
+Justify = Literal["left", "center", "right"]
 
 def to_algebraic(divisor):
     """
@@ -31,7 +34,7 @@ class ReadonlyEntry(tk.Entry):
     自定义扁平且只读的文本框。
     外观与常规 Label 无异，但支持用户手动选定、双击或拖拽进行 Ctrl+C 复制。
     """
-    def __init__(self, parent, text_val, font, fg, bg, width=24, justify=tk.RIGHT):
+    def __init__(self, parent, text_val, font, fg, bg, width=24, justify: Justify = "right"):
         super().__init__(
             parent, 
             relief="flat", 
@@ -85,21 +88,21 @@ class DashboardPanel(tk.Frame):
         # Card 1: 输入特征分析 (全部右对齐)
         self.card1 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_input_title'])
         self.card1.grid(row=0, column=0, sticky="nsew", padx=(0, gap), pady=5)
-        self.input_lbl1 = self._add_metric_row(self.card1, "数据长度", "--", "位", native_bg=native_bg, justify=tk.RIGHT)
-        self.input_lbl2 = self._add_metric_row(self.card1, "多项式", "--", "", native_bg=native_bg, justify=tk.RIGHT)
-        self.input_lbl3 = self._add_metric_row(self.card1, "除数十六进制", "--", "", native_bg=native_bg, justify=tk.RIGHT)
+        self.input_lbl1 = self._add_metric_row(self.card1, "数据长度", "--", "位", native_bg=native_bg, justify="right")
+        self.input_lbl2 = self._add_metric_row(self.card1, "多项式", "--", "", native_bg=native_bg, justify="right")
+        self.input_lbl3 = self._add_metric_row(self.card1, "除数十六进制", "--", "", native_bg=native_bg, justify="right")
         
         # Card 2: 运算步骤统计 (全部右对齐)
         self.card2 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_stats_title'])
         self.card2.grid(row=0, column=1, sticky="nsew", padx=gap, pady=5)
-        self.stats_lbl1 = self._add_metric_row(self.card2, "二进制商", "--", "", native_bg=native_bg, justify=tk.RIGHT)
-        self.stats_lbl2 = self._add_metric_row(self.card2, "运算步数", "--", "步", native_bg=native_bg, justify=tk.RIGHT)
+        self.stats_lbl1 = self._add_metric_row(self.card2, "二进制商", "--", "", native_bg=native_bg, justify="right")
+        self.stats_lbl2 = self._add_metric_row(self.card2, "运算步数", "--", "步", native_bg=native_bg, justify="right")
 
         # Card 3: 校验输出结果 (全部右对齐)
         self.card3 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_checksum_title'])
         self.card3.grid(row=0, column=2, sticky="nsew", padx=gap, pady=5)
-        self.checksum_lbl1 = self._add_metric_row(self.card3, "校验码", "--", "", native_bg=native_bg, is_highlight=True, justify=tk.RIGHT)
-        self.checksum_lbl2 = self._add_metric_row(self.card3, "十六进制", "--", "", native_bg=native_bg, is_highlight=True, justify=tk.RIGHT)
+        self.checksum_lbl1 = self._add_metric_row(self.card3, "校验码", "--", "", native_bg=native_bg, is_highlight=True, justify="right")
+        self.checksum_lbl2 = self._add_metric_row(self.card3, "十六进制", "--", "", native_bg=native_bg, is_highlight=True, justify="right")
 
         # Card 4: 发送数据帧
         self.card4 = ttk.LabelFrame(self, text=Config.UI_TEXT['card_frame_title'])
@@ -131,11 +134,11 @@ class DashboardPanel(tk.Frame):
             fg=Config.COLORS['text_dark'], 
             bg=native_bg,
             width=24,
-            justify=tk.CENTER
+            justify="center"
         )
         self.frame_entry.pack(anchor=tk.CENTER, fill=tk.X)
 
-    def _add_metric_row(self, parent_frame, label_text, val_text, unit_text, native_bg="#ffffff", is_highlight=False, justify=tk.RIGHT):
+    def _add_metric_row(self, parent_frame, label_text, val_text, unit_text, native_bg="#ffffff", is_highlight=False, justify: Justify = "right"):
         """ 统一添加支持右对齐对齐的 Windows 属性行 """
         bg_color = native_bg
         

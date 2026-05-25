@@ -41,9 +41,15 @@ class SidebarPanel(tk.Frame):
         
         self.side_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=scroll_w)
         
-        # 绘制功能配置主标题及下方装饰性渐变底纹分割线
-        tk.Label(self.scrollable_frame, text=Config.UI_TEXT['sidebar_title'], bg=Config.COLORS['sidebar_bg'], 
-                 fg=Config.COLORS['sidebar_title_fg'], font=Config.FONTS['side_title']).pack(pady=(20, 10))
+        # 绘制功能配置主标题，并在同一行右侧放置原生信息按钮
+        title_row = tk.Frame(self.scrollable_frame, bg=Config.COLORS['sidebar_bg'])
+        title_row.pack(fill=tk.X, padx=20, pady=(20, 10))
+        title_row.grid_columnconfigure(0, weight=1, uniform="sidebar_title")
+        title_row.grid_columnconfigure(2, weight=1, uniform="sidebar_title")
+        
+        tk.Label(title_row, text=Config.UI_TEXT['sidebar_title'], bg=Config.COLORS['sidebar_bg'], 
+                 fg=Config.COLORS['sidebar_title_fg'], font=Config.FONTS['side_title']).grid(row=0, column=1)
+        ttk.Button(title_row, text="ⓘ", width=3, command=self.show_about_dialog).grid(row=0, column=2, sticky=tk.E)
         tk.Frame(self.scrollable_frame, height=2, bg=Config.COLORS['primary'], width=Config.LAYOUT['side_divider_width']).pack(pady=(0, 20))
         
         # 绑定尺寸重构事件，实时同步更新滚动视区大小
@@ -178,16 +184,9 @@ class SidebarPanel(tk.Frame):
         # 恢复默认色彩按钮
         ttk.Button(parent, text=Config.UI_TEXT['btn_reset_color'], command=self.app.reset_colors).pack(fill=tk.X, pady=(10, 5))
                   
-        # 导出图表按钮及底部附加信息（放在主 panel 中）
+        # 导出图表按钮（放在主 panel 中）
         ttk.Button(self.inner_panel, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
                    style='Action.TButton').pack(fill=tk.X, pady=(15, 20))
-
-        # 悬浮或次要按钮：“关于软件”与版权微型页脚
-        ttk.Button(self.inner_panel, text=Config.UI_TEXT['btn_about'], command=self.show_about_dialog).pack(fill=tk.X)
-
-        # 极细版权微标
-        tk.Label(self.inner_panel, text=Config.COPYRIGHT, bg=Config.COLORS['sidebar_bg'], 
-                 fg=Config.COLORS['text_muted'], font=Config.FONTS['btn_small']).pack(pady=(15, 10))
 
     def update_swatches(self):
         """ 响应色彩重置或重新选取，动态同步色彩块底色 """

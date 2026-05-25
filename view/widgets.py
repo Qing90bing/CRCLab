@@ -256,11 +256,12 @@ class ColorSwatchRow(tk.Frame):
                 
         # 加粗复选框
         if bold_var:
+            bold_command = on_bold_toggle if on_bold_toggle is not None else (lambda: None)
             self.bold_check = ttk.Checkbutton(
                 self,
                 text="加粗",
                 variable=bold_var,
-                command=on_bold_toggle
+                command=bold_command
             )
             self.bold_check.pack(side=tk.RIGHT, padx=(0, 10), anchor=tk.E)
                 

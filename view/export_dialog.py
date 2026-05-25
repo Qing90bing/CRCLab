@@ -242,11 +242,13 @@ class ExportDialog:
     def _debounce_size_calc(self, data, dividend, divisor, q, rows, ctx, multiplier, fmt):
         """ 采用统一防抖机制（250毫秒）联动异步线程模拟物理写入，测算百分之百精确的文件大小 """
         form = self.form_panel
-        if getattr(self, '_calc_timer', None):
+        calc_timer = self._calc_timer
+        if calc_timer is not None:
             try:
-                self.dlg.after_cancel(self._calc_timer)
+                self.dlg.after_cancel(calc_timer)
             except Exception:
                 pass
+            self._calc_timer = None
                 
         form.size_lbl.config(text="预估大小: 计算中...")
         
