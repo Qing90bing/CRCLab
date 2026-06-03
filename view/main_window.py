@@ -155,10 +155,10 @@ class CRCLabApp:
         self.root.option_add('*Font', Config.FONTS['zh_normal'])
         
         # 常规按钮样式，统一 padding 配置
-        self.style.configure('TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
+        self.style.configure('TButton', font=Config.FONTS['zh_normal'], padding=(20, 8))
         
         # 高亮动作按钮样式，统一 padding 以确保与常规按钮高度等高
-        self.style.configure('Action.TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
+        self.style.configure('Action.TButton', font=Config.FONTS['zh_normal'], padding=(20, 8))
         
         # 顶部浮动工具栏按钮样式（不再使用，改用原生 tk.Button）
 
@@ -230,17 +230,25 @@ class CRCLabApp:
         data = self.data_var.get().strip()
         divisor = self.divisor_var.get().strip()
         
-        if not data or not divisor:
-            messagebox.showwarning(Config.MESSAGES['warning_title_invalid'], Config.MESSAGES['warning_empty'])
+        if not data:
+            self.sidebar.show_input_error(self.sidebar.data_entry, "数据位不能为空！")
             return
-        if not all(c in '01' for c in data) or not all(c in '01' for c in divisor):
-            messagebox.showwarning(Config.MESSAGES['warning_title_format'], Config.MESSAGES['warning_invalid_binary'])
+        if not divisor:
+            self.sidebar.show_input_error(self.sidebar.poly_entry, "多项式不能为空！")
             return
+            
+        if not all(c in '01' for c in data):
+            self.sidebar.show_input_error(self.sidebar.data_entry, Config.MESSAGES['warning_invalid_binary'])
+            return
+        if not all(c in '01' for c in divisor):
+            self.sidebar.show_input_error(self.sidebar.poly_entry, Config.MESSAGES['warning_invalid_binary'])
+            return
+            
         if divisor[0] == '0':
-            messagebox.showwarning(Config.MESSAGES['warning_title_algo'], Config.MESSAGES['warning_poly_first_bit_1'])
+            self.sidebar.show_input_error(self.sidebar.poly_entry, Config.MESSAGES['warning_poly_first_bit_1'])
             return
         if len(divisor) < 2:
-            messagebox.showwarning(Config.MESSAGES['warning_title_algo'], Config.MESSAGES['warning_poly_len_min_2'])
+            self.sidebar.show_input_error(self.sidebar.poly_entry, Config.MESSAGES['warning_poly_len_min_2'])
             return
 
         # 1. 运行二进制 CRC 算法计算引擎

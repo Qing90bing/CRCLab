@@ -199,3 +199,51 @@ class SidebarPanel(tk.Frame):
         """ 弹出关于本软件对话框 """
         from view.dialogs.about_dialog import AboutDialog
         AboutDialog(self.app)
+
+    def show_input_error(self, entry_widget, msg):
+        """ 显示基础数据输入错误的悬浮 tooltip 并聚焦选中 """
+        entry_widget.focus_set()
+        entry_widget.selection_range(0, tk.END)
+        
+        if hasattr(self, '_error_tooltip') and self._error_tooltip:
+            try:
+                self._error_tooltip.destroy()
+            except Exception:
+                pass
+            
+        x = entry_widget.winfo_rootx()
+        y = entry_widget.winfo_rooty() + entry_widget.winfo_height() + 2
+        
+        tip = tk.Toplevel(self)
+        tip.wm_overrideredirect(True)
+        tip.geometry(f"+{x}+{y}")
+        tip.configure(bg="#fef2f2", highlightbackground="#f87171", highlightthickness=1)
+        
+        lbl = tk.Label(
+            tip, 
+            text="⚠️ " + msg,
+            bg="#fef2f2",
+            fg="#b91c1c",
+            font=Config.FONTS['zh_normal'],
+            justify=tk.LEFT,
+            padx=8,
+            pady=4
+        )
+        lbl.pack()
+        
+        self._error_tooltip = tip
+        
+        def _close_tip(*args):
+            if hasattr(self, '_error_tooltip') and self._error_tooltip == tip:
+                try:
+                    tip.destroy()
+                except Exception:
+                    pass
+                self._error_tooltip = None
+                
+        tip.after(3000, _close_tip)
+        
+        # 绑定点击或按键时立刻消失
+        entry_widget.bind("<Key>", _close_tip, add="+")
+        entry_widget.bind("<Button-1>", _close_tip, add="+")
+

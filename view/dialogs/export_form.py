@@ -293,3 +293,50 @@ class ExportForm(tk.Frame):
         # 自定义路径输入框的只读/常规及发灰样式控制
         self.dir_entry.set_state(state, is_custom)
         self.filename_entry.config(state=state)
+
+    def show_filename_error(self, msg):
+        """ 显示文件名错误的悬浮 tooltip 并聚焦选中 """
+        self.filename_entry.focus_set()
+        self.filename_entry.selection_range(0, tk.END)
+        
+        if hasattr(self, '_error_tooltip') and self._error_tooltip:
+            try:
+                self._error_tooltip.destroy()
+            except Exception:
+                pass
+            
+        x = self.filename_entry.winfo_rootx()
+        y = self.filename_entry.winfo_rooty() + self.filename_entry.winfo_height() + 2
+        
+        tip = tk.Toplevel(self)
+        tip.wm_overrideredirect(True)
+        tip.geometry(f"+{x}+{y}")
+        tip.configure(bg="#fef2f2", highlightbackground="#f87171", highlightthickness=1)
+        
+        lbl = tk.Label(
+            tip, 
+            text="⚠️ " + msg,
+            bg="#fef2f2",
+            fg="#b91c1c",
+            font=Config.FONTS['zh_normal'],
+            justify=tk.LEFT,
+            padx=8,
+            pady=4
+        )
+        lbl.pack()
+        
+        self._error_tooltip = tip
+        
+        def _close_tip(*args):
+            if hasattr(self, '_error_tooltip') and self._error_tooltip == tip:
+                try:
+                    tip.destroy()
+                except Exception:
+                    pass
+                self._error_tooltip = None
+                
+        tip.after(3000, _close_tip)
+        
+        # 绑定点击或按键时立刻消失
+        self.filename_entry.bind("<Key>", _close_tip, add="+")
+        self.filename_entry.bind("<Button-1>", _close_tip, add="+")

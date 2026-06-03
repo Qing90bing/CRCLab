@@ -282,13 +282,13 @@ class ExportDialog:
         
         if scale_changed:
             if fmt in ("svg", "pdf", "emf"):
-                form.width_lbl.config(text="导出宽度:（矢量）")
-                form.height_lbl.config(text="导出高度:（矢量）")
+                form.width_lbl.config(text="导出宽度： 矢量")
+                form.height_lbl.config(text="导出高度： 矢量")
             else:
                 w_real = int(img.width * multiplier * dpi_scale)
                 h_real = int(img.height * multiplier * dpi_scale)
-                form.width_lbl.config(text=f"导出宽度: {w_real} 像素")
-                form.height_lbl.config(text=f"导出高度: {h_real} 像素")
+                form.width_lbl.config(text=f"导出宽度： {w_real} 像素")
+                form.height_lbl.config(text=f"导出高度： {h_real} 像素")
             
         # 精密估算大小（应用防抖）
         self._debounce_size_calc(data, dividend, divisor, q, rows, ctx, multiplier, fmt)
@@ -307,7 +307,7 @@ class ExportDialog:
                 pass
             self._calc_timer = None
                 
-        form.size_lbl.config(text="预估大小: 计算中...")
+        form.size_lbl.config(text="预估大小： 计算中...")
         
         # 生成递增自增的计算版本标识符，防止前一次慢计算返回后脏写覆盖新版界面显示
         if not hasattr(self, '_current_calc_id'):
@@ -345,13 +345,13 @@ class ExportDialog:
                         if getattr(self, '_is_exporting', False):
                             return
                         if getattr(self, '_current_calc_id', None) == calc_id:
-                            form.size_lbl.config(text=f"预估大小: {size_text}")
+                            form.size_lbl.config(text=f"预估大小： {size_text}")
                             if fmt in ("svg", "pdf", "emf"):
-                                form.width_lbl.config(text="导出宽度:（矢量）")
-                                form.height_lbl.config(text="导出高度:（矢量）")
+                                form.width_lbl.config(text="导出宽度： 矢量")
+                                form.height_lbl.config(text="导出高度： 矢量")
                             else:
-                                form.width_lbl.config(text=f"导出宽度: {w} 像素")
-                                form.height_lbl.config(text=f"导出高度: {h} 像素")
+                                form.width_lbl.config(text=f"导出宽度： {w} 像素")
+                                form.height_lbl.config(text=f"导出高度： {h} 像素")
                             
                     self.dlg.after(0, update_ui)
                 except Exception as ex:
@@ -360,9 +360,9 @@ class ExportDialog:
                         if getattr(self, '_is_exporting', False):
                             return
                         if getattr(self, '_current_calc_id', None) == calc_id:
-                            form.size_lbl.config(text=f"预估大小: 估算失败")
-                            form.width_lbl.config(text="导出宽度: 估算失败")
-                            form.height_lbl.config(text="导出高度: 估算失败")
+                            form.size_lbl.config(text=f"预估大小： 估算失败")
+                            form.width_lbl.config(text="导出宽度： 估算失败")
+                            form.height_lbl.config(text="导出高度： 估算失败")
                     self.dlg.after(0, fail_ui)
             
             # 以守护线程启动计算任务
@@ -416,8 +416,8 @@ class ExportDialog:
         }
         
         if is_vector:
-            details["宽度"] = "（矢量）"
-            details["高度"] = "（矢量）"
+            details["宽度"] = "矢量"
+            details["高度"] = "矢量"
         else:
             details["像素倍率"] = quality
             if fmt.lower() in ("jpg", "jpeg"):
@@ -449,10 +449,7 @@ class ExportDialog:
         filename = form.filename_var.get().strip()
         invalid_chars = set('\\/:*?"<>|')
         if not filename or any(char in invalid_chars for char in filename):
-            messagebox.showwarning(
-                Config.MESSAGES['warning_title_invalid'], 
-                Config.MESSAGES['warning_invalid_filename']
-            )
+            form.show_filename_error("文件名不能为空，且不能包含 \\ / : * ? \" < > |")
             return
 
         dir_mode = form.dir_mode_var.get()
@@ -492,9 +489,9 @@ class ExportDialog:
             was_calculating = True
             
         if was_calculating:
-            form.size_lbl.config(text="预估大小: 正在导出，忽略本次估算结果")
-            form.width_lbl.config(text="导出宽度: 正在导出，忽略本次估算结果")
-            form.height_lbl.config(text="导出高度: 正在导出，忽略本次估算结果")
+            form.size_lbl.config(text="预估大小： 正在导出，忽略本次估算结果")
+            form.width_lbl.config(text="导出宽度： 正在导出，忽略本次估算结果")
+            form.height_lbl.config(text="导出高度： 正在导出，忽略本次估算结果")
         
         form.set_widgets_state(tk.DISABLED)
         form.progress.config(mode='indeterminate')
