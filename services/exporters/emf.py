@@ -207,8 +207,8 @@ class EMFExporter(BaseExporter):
         if not HAS_EMF_DEPENDENCY:
             raise NotImplementedError("EMF 矢量导出格式仅支持在 Windows 操作系统下运行。")
             
-        data = app.state.data_var.get().strip()
-        divisor = app.state.divisor_var.get().strip()
+        data = app.data_var.get().strip()
+        divisor = app.divisor_var.get().strip()
         q, rows, dividend = app.engine.calculate(data, divisor)
         
         ctx = app._get_render_context()

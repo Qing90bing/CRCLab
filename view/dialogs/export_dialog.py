@@ -57,8 +57,30 @@ class ExportDialog:
         
         # 4. 首次同步与延迟定位居中
         self._update_preview()
+        
+        # 5. 计算并应用安全的最小窗口高度（必须在 UI 完全构建后）
+        self._enforce_safe_minsize()
+        
         self.dlg.deiconify()
         self.dlg.after(100, self._update_preview)
+
+    def _enforce_safe_minsize(self):
+        """ 
+        强制根据右侧参数面板内各组件的真实物理排版高度总和，更新窗口的最小高度。
+        防止操作系统 DPI 缩放或用户极端缩小窗口导致的组件互相挤压遮挡。
+        """
+        self.dlg.update_idletasks()
+        
+        # 由于 form_panel 使用了 pack_propagate(False)，其自身的 winfo_reqheight() 会失真。
+        # 因此我们必须遍历其直系子容器（top_content 和 bottom_actions）来算出真实的绝对需求高度。
+        content_h = sum(child.winfo_reqheight() for child in self.form_panel.winfo_children())
+        
+        # 加上 form_panel 本身在 pack 时设置的外边距 (pady=16 上下各 16)
+        real_req_h = content_h + 32
+        
+        # 保底依然使用 Config 中的默认最小值
+        safe_min_h = max(Config.LAYOUT['export_min_h'], real_req_h)
+        self.dlg.minsize(Config.LAYOUT['export_min_w'], safe_min_h)
 
     def _setup_geometry(self):
         """ 根据物理屏幕分辨率及实际工作区（排除任务栏）自适应居中显示 """
@@ -100,13 +122,13 @@ class ExportDialog:
 
     def _build_layout(self):
         """ 构建导出界面的左右双栏框架 """
+        # 挂载右侧配置参数表单组件 (先 pack 右侧，确保在窗口缩小的时候不会被左侧抢占空间而导致挤压变形)
+        self.form_panel = ExportForm(self.dlg, self)
+        self.form_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 16), pady=16)
+
         # 挂载左侧自适应预览画布组件
         self.preview_panel = ExportPreview(self.dlg, self.app)
         self.preview_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(16, 8), pady=16)
-        
-        # 挂载右侧配置参数表单组件
-        self.form_panel = ExportForm(self.dlg, self)
-        self.form_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 16), pady=16)
 
     def _setup_bindings(self):
         """ 联动绑定下拉菜单、复选框变量 trace 并配置画布 Configure 自动响应 """
@@ -167,8 +189,23 @@ class ExportDialog:
         form.quality_var.trace_add("write", lambda *a: self._update_preview())
         form.dpi_var.trace_add("write", lambda *a: self._update_preview())
         
-        # 窗口大小改动后自动对齐画布居中
-        self.preview_panel.preview_canvas.bind("<Configure>", lambda e: self._update_preview())
+        # 窗口大小改动后自动对齐画布居中（防抖处理避免卡顿）
+        self.preview_panel.preview_canvas.bind("<Configure>", self._on_canvas_configure)
+
+    def _on_canvas_configure(self, event):
+        """ 画布大小改变时的实时居中与防抖重绘 """
+        # 1. 立即在视觉上居中现有内容，避免拖拽边框时白边闪烁
+        self.preview_panel.recenter_canvas()
+        
+        # 2. 防抖触发仅针对画布缩放的重绘，不再触发耗时的后台大小预估计算
+        if getattr(self, '_resize_timer', None) is not None:
+            self.dlg.after_cancel(self._resize_timer)
+        self._resize_timer = self.dlg.after(200, self._refresh_preview_scale)
+
+    def _refresh_preview_scale(self):
+        """ 仅根据画布新尺寸重新缩放已有图像，彻底跳过 CRC 计算和文件物理大小预估 """
+        if hasattr(self, '_last_rendered_img') and self._last_rendered_img:
+            self.preview_panel.render_preview(self._last_rendered_img)
 
     def _update_preview(self):
         """
@@ -214,6 +251,9 @@ class ExportDialog:
                 img = Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
             else:
                 img = img.convert("L").point(_BW_THRESHOLD_TABLE, 'L').convert("1")
+        
+        # 保存最后的原始高分辨率渲染图以便后续纯拖拽窗口时进行零成本快速重缩放
+        self._last_rendered_img = img
         
         # 5. 更新导出宽度、高度及文件大小的指示文本
         self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
@@ -367,17 +407,27 @@ class ExportDialog:
             size_text = "未知"
             
         # 组装明细数据
+        is_vector = fmt.lower() in ("svg", "pdf", "emf")
         details = {
-            "格式": fmt,
+            "文件名": os.path.basename(out_path),
+            "格式": fmt.upper(),
             "DPI": dpi,
             "颜色": color,
-            "像素倍率": quality,
-            "宽度": f"{width} 像素" if width > 0 else "未知",
-            "高度": f"{height} 像素" if height > 0 else "未知",
-            "纸张边框": border,
-            "透明背景": transparent_bg,
-            "文件大小": size_text
         }
+        
+        if is_vector:
+            details["宽度"] = "（矢量）"
+            details["高度"] = "（矢量）"
+        else:
+            details["像素倍率"] = quality
+            if fmt.lower() in ("jpg", "jpeg"):
+                details["JPG 质量"] = str(int(round(float(form.jpg_quality_var.get())))) + "%"
+            details["宽度"] = f"{width} 像素" if width > 0 else "未知"
+            details["高度"] = f"{height} 像素" if height > 0 else "未知"
+            
+        details["纸张边框"] = border
+        details["透明背景"] = transparent_bg
+        details["文件大小"] = size_text
         
         SuccessDialog(self.dlg, out_path, export_dir, details)
 
@@ -395,7 +445,16 @@ class ExportDialog:
         import threading
         form = self.form_panel
         
-        # 1. 前置校验：如果选择自定义目录，检验其路径是否在物理磁盘上真实存在，且是一个有效的目录
+        # 1. 前置校验：校验文件名是否合法，以及自定义目录是否有效
+        filename = form.filename_var.get().strip()
+        invalid_chars = set('\\/:*?"<>|')
+        if not filename or any(char in invalid_chars for char in filename):
+            messagebox.showwarning(
+                Config.MESSAGES['warning_title_invalid'], 
+                Config.MESSAGES['warning_invalid_filename']
+            )
+            return
+
         dir_mode = form.dir_mode_var.get()
         custom_dir = form.custom_dir_var.get().strip()
         
@@ -454,6 +513,7 @@ class ExportDialog:
             try:
                 out_path, export_dir, width, height = Exporter.export(
                     self.app,
+                    filename,
                     fmt,
                     show_border,
                     color_mode,

@@ -194,11 +194,11 @@ class SuccessDialog:
         
         # 循环绘制每一行
         # 每一行的 Frame 底部带 1 像素间距，背景使用斑马纹交替，最后一行不加底部间距
-        keys = ["格式", "DPI", "颜色", "像素倍率", "宽度", "高度", "纸张边框", "透明背景", "文件大小"]
+        keys = list(self.details.keys())
         total_keys = len(keys)
         for idx, key in enumerate(keys):
             bg_row = "#f8fafc" if idx % 2 == 1 else "#ffffff"
-            val = self.details.get(key, "--")
+            val = self.details[key]
             
             row_frame = tk.Frame(table_inner, bg=bg_row, pady=4)
             

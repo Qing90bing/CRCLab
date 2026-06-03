@@ -22,8 +22,8 @@ class PDFExporter(BaseExporter):
         if not HAS_PDF_DEPENDENCY:
             raise ImportError("未检测到 PDF 矢量导出依赖！请先在命令行运行 pip install svglib reportlab 导入支持。")
             
-        data = app.state.data_var.get().strip()
-        divisor = app.state.divisor_var.get().strip()
+        data = app.data_var.get().strip()
+        divisor = app.divisor_var.get().strip()
         q, rows, dividend = app.engine.calculate(data, divisor)
         
         ctx = app._get_render_context()

@@ -22,9 +22,17 @@ class ExportForm(tk.Frame):
         self.app = dialog.app
         self.pack_propagate(False)
 
+        # A. 底部动作区（最先 pack 保证其永远占据底部空间，绝不被截断）
+        self.bottom_actions_container = tk.Frame(self, bg=self.bg_color)
+        self.bottom_actions_container.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # B. 上部内容区
+        self.top_content_container = tk.Frame(self, bg=self.bg_color)
+        self.top_content_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
         # 1. 区域主标题描述
         tk.Label(
-            self, 
+            self.top_content_container, 
             text=Config.UI_TEXT['export_params'], 
             bg=self.bg_color,
             font=Config.FONTS['zh_bold']
@@ -41,6 +49,7 @@ class ExportForm(tk.Frame):
 
     def _init_form_variables(self):
         """ 显式初始化所有局部表单控制相关的 Tkinter 变量 """
+        self.filename_var = tk.StringVar(value=Config.EXPORT_VALUES['filename'])
         self.fmt_var = tk.StringVar(value=Config.EXPORT_VALUES['format'])
         self.quality_var = tk.StringVar(value=Config.EXPORT_VALUES['quality'])
         self.jpg_quality_var = tk.DoubleVar(value=Config.EXPORT_VALUES['jpg_quality'])
@@ -53,7 +62,7 @@ class ExportForm(tk.Frame):
 
     def _build_form_widgets(self):
         """ 构建表单的核心下拉组合框及自适应路径展示框 """
-        self.spec_group = LabeledGroup(self, Config.UI_TEXT['export_spec_group'], bg=self.bg_color)
+        self.spec_group = LabeledGroup(self.top_content_container, Config.UI_TEXT['export_spec_group'], bg=self.bg_color)
         self.spec_group.pack(fill=tk.X, pady=(0, 10))
         spec_inner = self.spec_group.inner
 
@@ -133,9 +142,16 @@ class ExportForm(tk.Frame):
         )
         self.border_check.pack(anchor=tk.W, pady=(8, 0))
 
-        self.output_group = LabeledGroup(self, Config.UI_TEXT['export_output_group'], bg=self.bg_color)
+        self.output_group = LabeledGroup(self.top_content_container, Config.UI_TEXT['export_output_group'], bg=self.bg_color)
         self.output_group.pack(fill=tk.X, pady=(0, 10))
         output_inner = self.output_group.inner
+        
+        # 导出文件名
+        filename_frame = tk.Frame(output_inner, bg=self.bg_color)
+        filename_frame.pack(fill=tk.X, pady=(0, 8))
+        tk.Label(filename_frame, text=Config.UI_TEXT['export_filename'], bg=self.bg_color, font=Config.FONTS['zh_normal']).pack(anchor=tk.W, pady=(0, 4))
+        self.filename_entry = ttk.Entry(filename_frame, textvariable=self.filename_var, font=Config.FONTS['zh_normal'])
+        self.filename_entry.pack(fill=tk.X, expand=True)
         
         # 导出路径及自定义选择区
         self.dir_mode_combo = LabeledCombobox(output_inner, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'], bg=self.bg_color)
@@ -150,7 +166,7 @@ class ExportForm(tk.Frame):
 
     def _build_info_and_actions(self):
         """ 绘制导出规格预估面板，动画进度条及底层取消、确认按钮 """
-        self.info_group = ttk.LabelFrame(self, text=Config.UI_TEXT['export_info_group'])
+        self.info_group = ttk.LabelFrame(self.top_content_container, text=Config.UI_TEXT['export_info_group'])
         self.info_group.pack(fill=tk.X, pady=(0, 10))
         
         info_inner = tk.Frame(self.info_group, bg=self.bg_color, padx=12, pady=9)
@@ -166,15 +182,12 @@ class ExportForm(tk.Frame):
         self.size_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_size_placeholder'], bg=self.bg_color, font=Config.FONTS['zh_normal'], anchor="w")
         self.size_lbl.pack(fill=tk.X, pady=2)
 
-        # 底部按钮强对齐填充器 (弹簧弹性框架)
-        tk.Frame(self, bg=self.bg_color).pack(fill=tk.BOTH, expand=True)
-
-        # 固定的进度条，默认设置为 determinate 且进度为 0，这样空闲时不显示绿色滑块
-        self.progress = ttk.Progressbar(self, orient=tk.HORIZONTAL, mode='determinate', value=0)
+        # 固定的进度条，挂载在底部的容器中
+        self.progress = ttk.Progressbar(self.bottom_actions_container, orient=tk.HORIZONTAL, mode='determinate', value=0)
         self.progress.pack(fill=tk.X, pady=(6, 4))
 
-        # 确认与取消动作区域
-        btn_frame = tk.Frame(self, bg=self.bg_color)
+        # 确认与取消动作区域，同样挂载在底部的容器中
+        btn_frame = tk.Frame(self.bottom_actions_container, bg=self.bg_color)
         btn_frame.pack(fill=tk.X, pady=(8, 12))
         
         ttk.Button(btn_frame, text=Config.UI_TEXT['btn_cancel'], command=self.dialog.dlg.destroy).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
@@ -279,3 +292,4 @@ class ExportForm(tk.Frame):
         
         # 自定义路径输入框的只读/常规及发灰样式控制
         self.dir_entry.set_state(state, is_custom)
+        self.filename_entry.config(state=state)

@@ -52,27 +52,41 @@ class ExportPreview(tk.Frame):
         
         self.preview_canvas.delete("all")
         
-        # 1. 优先在最底层铺设大背景棋盘格图，指示背景透明部分，保持全系统底图格子大小对齐
-        self.preview_canvas.create_image(0, 0, image=self.app.canvas_bg_image, anchor="center", tags="canvas_bg")
+        # 将预览放置在画布的绝对物理中心
+        cx, cy = cw / 2, ch / 2
+        
+        # 1. 优先在最底层铺设大背景棋盘格图，对齐 15 像素网格，避免网格闪烁
+        size = 15
+        cx_aligned = int((cx // size) * size)
+        cy_aligned = int((cy // size) * size)
+        
+        self.preview_canvas.create_image(cx_aligned, cy_aligned, image=self.app.canvas_bg_image, anchor="center", tags="canvas_bg")
         
         # 2. 贴上缩放完成后的公式算式图
         self.preview_photo = ImageTk.PhotoImage(img)
-        self.preview_canvas.create_image(0, 0, image=self.preview_photo, anchor="center")
+        self.preview_canvas.create_image(cx, cy, image=self.preview_photo, anchor="center", tags="formula")
         
-        # 3. 动态配置滚动范围上限以满足坐标平移
-        self.preview_canvas.config(scrollregion=(-3000, -3000, 3000, 3000))
-        self.recenter_canvas()
+        # 无需配置 scrollregion，因为该预览画布不支持拖拽平移，内容始终物理居中
 
     def recenter_canvas(self):
         """
-        物理平移视口原点，使公式图像完美地水平和垂直居中对齐在 Canvas 展示区中。
+        在画布大小被调整（或调整中）时，快速将现有的视觉元素物理平移到新中心。
+        无需重绘即可保持视觉完美的居中体验。
         """
-        self.preview_canvas.update_idletasks()
         cw, ch = self.preview_canvas.winfo_width(), self.preview_canvas.winfo_height()
-        bbox = self.preview_canvas.bbox("all")
-        if bbox:
-            self.preview_canvas.xview_moveto(((bbox[0] + bbox[2]) / 2 - cw / 2 + 3000) / 6000)
-            self.preview_canvas.yview_moveto(((bbox[1] + bbox[3]) / 2 - ch / 2 + 3000) / 6000)
+        if cw <= 10 or ch <= 10:
+            return
+            
+        cx, cy = cw / 2, ch / 2
+        
+        # 快速平移背景网格（保持科技感像素对齐）
+        size = 15
+        cx_aligned = int((cx // size) * size)
+        cy_aligned = int((cy // size) * size)
+        self.preview_canvas.coords("canvas_bg", cx_aligned, cy_aligned)
+        
+        # 快速平移前景公式图像
+        self.preview_canvas.coords("formula", cx, cy)
 
     def clear(self):
         """ 清空画布内所有绘制图元 """

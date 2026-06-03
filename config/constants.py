@@ -56,6 +56,7 @@ class Config:
         'warning_poly_first_bit_1': "多项式首位必须为 1 才能进行有效的 CRC 除法计算。",
         'warning_poly_len_min_2': "多项式长度至少需为 2 位。",
         'warning_custom_dir_empty': "已选择“自定义目录”，但尚未通过“浏览目录”按钮指定具体导出路径。",
+        'warning_invalid_filename': "导出文件名不合格！\n文件名不能为空，且不能包含以下字符：\\ / : * ? \" < > |",
         'export_fail_title': "导出失败",
         'export_fail_body': "导出过程中发生错误，请按以下信息排查：\n\n1) 错误类型: {error_type}\n2) 错误详情: {error_msg}\n3) 建议排查: 请确认目录写入权限或导出参数是否有效。",
     }
@@ -120,6 +121,7 @@ class Config:
         'export_jpg_quality': "质量",
         'export_color': "颜色",
         'export_show_border': "导出带黑色边框",
+        'export_filename': "导出文件名",
         'export_dir': "导出目录",
         'export_btn_browse': "浏览目录",
         'export_info_group': "预估信息",
@@ -231,6 +233,7 @@ class Config:
 
     # 默认导出配置参数表：统一控制初始业务值
     EXPORT_VALUES = {
+        'filename': "crc_export",                 # 默认导出文件名
         'format': "png",                          # 默认物理导出格式
         'quality': "默认尺寸",                # 默认物理画面缩放倍数
         'jpg_quality': 80,                         # 默认 JPG 压缩质量

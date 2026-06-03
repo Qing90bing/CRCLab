@@ -52,8 +52,8 @@ class SVGExporter(BaseExporter):
         """
         核心物理保存：将拦截到的矢量指令序列化为 SVG 格式的 XML 文件并写入磁盘。
         """
-        data = app.state.data_var.get().strip()
-        divisor = app.state.divisor_var.get().strip()
+        data = app.data_var.get().strip()
+        divisor = app.divisor_var.get().strip()
         q, rows, dividend = app.engine.calculate(data, divisor)
         
         ctx = app._get_render_context()

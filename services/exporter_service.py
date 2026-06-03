@@ -11,7 +11,7 @@ class Exporter:
     这样即使以后增加格式，此外部协调器及 UI 控制层也能保持 100% 稳定，符合开闭原则（OCP）。
     """
     @staticmethod
-    def export(app, fmt, show_border, color_mode, quality_name, jpg_quality, dpi_val, dir_mode, custom_dir):
+    def export(app, filename, fmt, show_border, color_mode, quality_name, jpg_quality, dpi_val, dir_mode, custom_dir):
         """
         统一物理导出入口。通过工厂映射字典分发至具体物理插件。
         """
@@ -32,7 +32,13 @@ class Exporter:
             if not os.path.exists(export_dir) or not os.path.isdir(export_dir):
                 raise FileNotFoundError(f"指定的自定义导出目录不存在或无效：{export_dir}")
         
-        out_path = os.path.join(export_dir, f"crc_export.{fmt}")
+        # 自动重命名，防止覆盖已有文件
+        base_name = filename
+        out_path = os.path.join(export_dir, f"{base_name}.{fmt}")
+        counter = 1
+        while os.path.exists(out_path):
+            out_path = os.path.join(export_dir, f"{base_name}_{counter}.{fmt}")
+            counter += 1
 
         # 2. 动态查找注册的格式插件并调用执行
         exporter_cls = EXPORTERS.get(fmt.lower())
@@ -55,8 +61,8 @@ class Exporter:
                 pass
         else:
             try:
-                data = app.state.data_var.get().strip()
-                divisor = app.state.divisor_var.get().strip()
+                data = app.data_var.get().strip()
+                divisor = app.divisor_var.get().strip()
                 q, rows, dividend = app.engine.calculate(data, divisor)
                 ctx = app._get_render_context()
                 _, width, height = exporter_cls.estimate_size(
