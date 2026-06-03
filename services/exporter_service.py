@@ -55,8 +55,8 @@ class Exporter:
                 pass
         else:
             try:
-                data = app.data_var.get().strip()
-                divisor = app.divisor_var.get().strip()
+                data = app.state.data_var.get().strip()
+                divisor = app.state.divisor_var.get().strip()
                 q, rows, dividend = app.engine.calculate(data, divisor)
                 ctx = app._get_render_context()
                 _, width, height = exporter_cls.estimate_size(

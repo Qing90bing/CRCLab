@@ -3,6 +3,14 @@ import tkinter as tk
 from tkinter import messagebox, colorchooser, ttk
 from PIL import Image, ImageTk, ImageDraw
 
+import os
+import sys
+
+# 动态确保项目根目录在 sys.path 中，防范直接运行此脚本时的模块导入错误
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 # 解除 PIL 最大像素限制，确保超高分辨率导出（例如 4 倍放大时）不会因为像素总数超限而抛出 DecompressionBombError
 Image.MAX_IMAGE_PIXELS = None
 
@@ -14,6 +22,7 @@ from view.panels.sidebar import SidebarPanel
 from view.dialogs.export_dialog import ExportDialog
 from view.panels.dashboard import DashboardPanel
 from view.components.toolbar import CanvasToolbar
+from view.components.interactive_canvas import InteractiveCanvas
 
 class CRCLabApp:
     """
@@ -53,13 +62,10 @@ class CRCLabApp:
         # 5. 执行首次图像渲染生成与居中显示
         self.root.update_idletasks()
         self.generate(auto_center=True)
-        self.root.after(100, self.center_view)
+        self.root.after(100, self.canvas.center_view)
 
     def _setup_window_icon(self):
         """ 安全地设置窗口及任务栏高清图标 """
-        import os
-        import sys
-        
         # 兼容单文件打包和常规运行环境，动态定位绝对路径，防范 CWD 漂移的影响
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         icon_ico = os.path.join(base_dir, "resources", "app_icon.ico")
@@ -120,10 +126,14 @@ class CRCLabApp:
         self.root.configure(bg=Config.COLORS['main_bg'])
         
         try:
-            # 尝试以窗口最大化启动
+            # 尝试以窗口最大化启动（Windows/Mac）
             self.root.state('zoomed')
         except Exception:
-            pass
+            try:
+                # 兼容 Linux X11 环境的最大化
+                self.root.attributes('-zoomed', True)
+            except Exception:
+                pass
 
     def _setup_styles(self):
         self.style = ttk.Style()
@@ -177,25 +187,20 @@ class CRCLabApp:
         cont = tk.Frame(self.right_container, bg=Config.LAYOUT['canvas_bg'], bd=2)
         cont.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
-        self.canvas = tk.Canvas(cont, bg=Config.COLORS['canvas_default_bg'], highlightthickness=0, cursor="hand2")
+        self.canvas = InteractiveCanvas(cont, self, bg=Config.COLORS['canvas_default_bg'], highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
         
         self.toolbar = CanvasToolbar(
             cont,
-            on_zoom_in=lambda: self._adjust_zoom(Config.LAYOUT['zoom_in_factor']),
-            on_zoom_out=lambda: self._adjust_zoom(Config.LAYOUT['zoom_out_factor']),
-            on_reset_view=self.reset_view,
-            on_fit_view=self.fit_view,
-            on_toggle_drag_mode=self._toggle_drag_mode
+            on_zoom_in=lambda: self.canvas.adjust_zoom(Config.LAYOUT['zoom_in_factor']),
+            on_zoom_out=lambda: self.canvas.adjust_zoom(Config.LAYOUT['zoom_out_factor']),
+            on_reset_view=self.canvas.reset_view,
+            on_fit_view=self.canvas.fit_view,
+            on_toggle_drag_mode=self.canvas.toggle_drag_mode
         )
         
-        # 绑定物理平移及滚轮缩放事件
+        # 绑定物理平移及滚轮缩放事件由 InteractiveCanvas 内部接管
         self.renderer = CanvasRenderer(self.canvas)
-        self.canvas.bind("<ButtonPress-1>", self.start_pan)
-        self.canvas.bind("<B1-Motion>", self.do_pan)
-        self.canvas.bind("<MouseWheel>", self.on_mousewheel)
-        # 绑定画布大小改变（及首次物理渲染显示事件），动态刷新大底图对齐
-        self.canvas.bind("<Configure>", lambda e: self._update_bg_position())
         
         # 2. 底部的实时解析看板
         self.dashboard = DashboardPanel(self.right_container, self)
@@ -275,7 +280,7 @@ class CRCLabApp:
         self.canvas.config(scrollregion=(-scroll_bound, -scroll_bound, scroll_bound, scroll_bound))
         
         if auto_center:
-            self.center_view()
+            self.canvas.center_view()
             
         # 5. 实时刷新底部解析看板
         self.dashboard.update_data(data, divisor, q, rows)
@@ -306,104 +311,6 @@ class CRCLabApp:
         return ctx
 
     # --- 交互事件处理 ---
-
-    def _adjust_zoom(self, factor):
-        new_scale = self.view_scale * factor
-        if Config.LAYOUT['zoom_min'] <= new_scale <= Config.LAYOUT['zoom_max']:
-            self.view_scale = new_scale
-            self.update_zoom_display()
-            self.generate(auto_center=False)
-
-    def on_mousewheel(self, event):
-        self.view_scale = max(Config.LAYOUT['zoom_min'], min(Config.LAYOUT['zoom_mousewheel_max'], getattr(self, 'view_scale', 1.0) * (Config.LAYOUT['zoom_in_factor'] if event.delta > 0 else Config.LAYOUT['zoom_out_factor'])))
-        self.update_zoom_display()
-        self.generate(auto_center=False)
-
-    def update_zoom_display(self):
-        if hasattr(self, 'toolbar'):
-            self.toolbar.set_zoom_text(f"{int(self.view_scale * 100)}%")
-
-    def center_view(self):
-        bbox = self.canvas.bbox("formula")
-        if not bbox: return
-        cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
-        scroll_bound = Config.LAYOUT['canvas_scroll_bound']
-        self.canvas.xview_moveto(((bbox[0]+bbox[2])/2 - cw/2 + scroll_bound) / (scroll_bound * 2))
-        self.canvas.yview_moveto(((bbox[1]+bbox[3])/2 - ch/2 + scroll_bound) / (scroll_bound * 2))
-        # 居中平移视口后，立即重新更新背景棋盘格图元的位置
-        self._update_bg_position()
-
-    def fit_view(self):
-        """ 自动计算最佳缩放比例，使图解完整显示在当前画布可视区域内 """
-        if not hasattr(self, 'photo_img') or not self.photo_img:
-            return
-            
-        # 预留 40 像素的内边距，防止图像完全贴边
-        cw = self.canvas.winfo_width() - 40
-        ch = self.canvas.winfo_height() - 40
-        
-        if cw <= 0 or ch <= 0:
-            return
-            
-        # 还原计算 view_scale=1.0 时的原始逻辑尺寸
-        orig_w = self.photo_img.width() / self.view_scale
-        orig_h = self.photo_img.height() / self.view_scale
-        
-        if orig_w <= 0 or orig_h <= 0:
-            return
-            
-        # 按照宽高计算缩放比例，取较小值以保证两个方向都能放下
-        target_scale = min(cw / orig_w, ch / orig_h)
-        
-        # 将缩放比例限制在配置允许的最小与最大范围内
-        target_scale = max(Config.LAYOUT['zoom_min'], min(Config.LAYOUT['zoom_max'], target_scale))
-        
-        self.view_scale = target_scale
-        self.update_zoom_display()
-        self.generate(auto_center=True)
-
-    def reset_view(self):
-        self.view_scale = 1.0
-        self.update_zoom_display()
-        self.generate(auto_center=True)
-
-    def _toggle_drag_mode(self):
-        """ 切换拖动模式的开关状态，并更新按钮视觉 """
-        if not hasattr(self, '_drag_mode'):
-            self._drag_mode = True
-        self._drag_mode = not self._drag_mode
-        if hasattr(self, 'toolbar'):
-            self.toolbar.set_drag_mode_ui(self._drag_mode)
-        if self._drag_mode:
-            self.canvas.config(cursor="hand2")
-        else:
-            self.canvas.config(cursor="")
-
-    def start_pan(self, event):
-        if not getattr(self, '_drag_mode', True):
-            return
-        self.canvas.scan_mark(event.x, event.y)
-
-    def do_pan(self, event):
-        if not getattr(self, '_drag_mode', True):
-            return
-        self.canvas.scan_dragto(event.x, event.y, gain=1)
-        self._update_bg_position()
-
-    def _update_bg_position(self):
-        """ 动态计算视区几何中心并对齐格子，使背景图永远稳定铺满视口且格底静止 """
-        if hasattr(self, 'canvas') and self.canvas.find_withtag("canvas_bg"):
-            x0 = self.canvas.canvasx(0)
-            y0 = self.canvas.canvasy(0)
-            w = self.canvas.winfo_width()
-            h = self.canvas.winfo_height()
-            if w > 10 and h > 10:
-                cx = x0 + w / 2
-                cy = y0 + h / 2
-                size = 15
-                cx_aligned = int((cx // size) * size)
-                cy_aligned = int((cy // size) * size)
-                self.canvas.coords("canvas_bg", cx_aligned, cy_aligned)
 
     def pick_color(self, attr):
         """ 打开系统调色板选择颜色，并同步更新侧边栏预览色块与画布 """

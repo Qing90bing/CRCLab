@@ -17,8 +17,8 @@ class BitmapExporter(BaseExporter):
         jpg_quality = max(10, min(100, int(kwargs.get('jpg_quality', 80))))
         dpi_scale = dpi_val / 96.0
         
-        data = app.data_var.get().strip()
-        divisor = app.divisor_var.get().strip()
+        data = app.state.data_var.get().strip()
+        divisor = app.state.divisor_var.get().strip()
         q, rows, dividend = app.engine.calculate(data, divisor)
         
         ctx = app._get_render_context()

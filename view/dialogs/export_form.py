@@ -2,6 +2,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog
 from config.constants import Config
+from view.components.widgets import LabeledGroup, LabeledCombobox, ReadOnlyPathEntry
 
 class ExportForm(tk.Frame):
     """
@@ -52,7 +53,9 @@ class ExportForm(tk.Frame):
 
     def _build_form_widgets(self):
         """ 构建表单的核心下拉组合框及自适应路径展示框 """
-        _, spec_inner = self._make_group(Config.UI_TEXT['export_spec_group'], pady=(0, 10))
+        self.spec_group = LabeledGroup(self, Config.UI_TEXT['export_spec_group'], bg=self.bg_color)
+        self.spec_group.pack(fill=tk.X, pady=(0, 10))
+        spec_inner = self.spec_group.inner
 
         # 第一行：“格式” 和 “像素倍率”
         row1_frame = tk.Frame(spec_inner, bg=self.bg_color)
@@ -66,8 +69,10 @@ class ExportForm(tk.Frame):
         col1_2 = tk.Frame(row1_frame, bg=self.bg_color)
         col1_2.grid(row=0, column=1, sticky="ew", padx=(6, 0))
         
-        self.fmt_combo = self._add_combo_to_parent(col1_1, Config.UI_TEXT['export_format'], self.fmt_var, Config.EXPORT_OPTIONS['formats'])
-        self.quality_combo = self._add_combo_to_parent(col1_2, Config.UI_TEXT['export_quality'], self.quality_var, Config.EXPORT_OPTIONS['qualities'])
+        self.fmt_combo = LabeledCombobox(col1_1, Config.UI_TEXT['export_format'], self.fmt_var, Config.EXPORT_OPTIONS['formats'], bg=self.bg_color)
+        self.fmt_combo.pack(fill=tk.X, expand=True)
+        self.quality_combo = LabeledCombobox(col1_2, Config.UI_TEXT['export_quality'], self.quality_var, Config.EXPORT_OPTIONS['qualities'], bg=self.bg_color)
+        self.quality_combo.pack(fill=tk.X, expand=True)
         
         # 第二行：“DPI” 和 “颜色”
         row2_frame = tk.Frame(spec_inner, bg=self.bg_color)
@@ -81,8 +86,10 @@ class ExportForm(tk.Frame):
         col2_2 = tk.Frame(row2_frame, bg=self.bg_color)
         col2_2.grid(row=0, column=1, sticky="ew", padx=(6, 0))
         
-        self.dpi_combo = self._add_combo_to_parent(col2_1, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
-        self.color_combo = self._add_combo_to_parent(col2_2, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
+        self.dpi_combo = LabeledCombobox(col2_1, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'], bg=self.bg_color)
+        self.dpi_combo.pack(fill=tk.X, expand=True)
+        self.color_combo = LabeledCombobox(col2_2, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'], bg=self.bg_color)
+        self.color_combo.pack(fill=tk.X, expand=True)
 
         self.jpg_quality_label = tk.Label(
             spec_inner,
@@ -126,47 +133,20 @@ class ExportForm(tk.Frame):
         )
         self.border_check.pack(anchor=tk.W, pady=(8, 0))
 
-        _, output_inner = self._make_group(Config.UI_TEXT['export_output_group'], pady=(0, 10))
+        self.output_group = LabeledGroup(self, Config.UI_TEXT['export_output_group'], bg=self.bg_color)
+        self.output_group.pack(fill=tk.X, pady=(0, 10))
+        output_inner = self.output_group.inner
         
         # 导出路径及自定义选择区
-        self.dir_mode_combo = self._add_combo_to_parent(output_inner, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
+        self.dir_mode_combo = LabeledCombobox(output_inner, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'], bg=self.bg_color)
+        self.dir_mode_combo.pack(fill=tk.X, expand=True)
   
         self.browse_btn = ttk.Button(output_inner, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
         self.browse_btn.pack(fill=tk.X, pady=(8, 8))
         
         # 精美的信息块 (Block) 来展示当前选定的导出路径
-        self.dir_block = tk.Frame(
-            output_inner,
-            bg="#f8fafc",
-            highlightthickness=1,
-            highlightbackground="#cbd5e1",
-            padx=10,
-            pady=8
-        )
-        self.dir_block.pack(fill=tk.X)
-        
-        # 只读的 Entry 小部件来承载路径显示，支持鼠标左右拖动、全选复制，且绝不折行或挤占布局
-        self.dir_entry = tk.Entry(
-            self.dir_block,
-            textvariable=self.display_dir_var,
-            font=Config.FONTS['zh_normal'],
-            bg="#f8fafc",
-            fg="#475569",
-            bd=0,
-            highlightthickness=0,
-            state="readonly",
-            readonlybackground="#f8fafc",
-            selectbackground="#cbd5e1"
-        )
-        self.dir_entry.pack(fill=tk.X, expand=True)
-
-    def _make_group(self, title, pady):
-        """ 创建原生分组框及统一内边距容器。 """
-        group = ttk.LabelFrame(self, text=title)
-        group.pack(fill=tk.X, pady=pady)
-        inner = tk.Frame(group, bg=self.bg_color, padx=12, pady=10)
-        inner.pack(fill=tk.BOTH, expand=True)
-        return group, inner
+        self.dir_entry = ReadOnlyPathEntry(output_inner, self.display_dir_var)
+        self.dir_entry.pack(fill=tk.X)
 
     def _build_info_and_actions(self):
         """ 绘制导出规格预估面板，动画进度条及底层取消、确认按钮 """
@@ -202,35 +182,7 @@ class ExportForm(tk.Frame):
         self.export_btn = ttk.Button(btn_frame, text=Config.UI_TEXT['btn_start_export'], command=self.dialog.export_chart, style='Action.TButton')
         self.export_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(6, 0))
 
-    def _add_combo(self, label, var, values):
-        """ 组合框小部件构建 helper """
-        label_widget = tk.Label(
-            self, 
-            text=label, 
-            bg=self.bg_color,
-            font=Config.FONTS['zh_normal']
-        )
-        label_widget.pack(anchor=tk.W, pady=(6, 2))
-        
-        combo = ttk.Combobox(self, textvariable=var, values=values, state="readonly")
-        setattr(combo, "label_widget", label_widget)
-        combo.pack(fill=tk.X)
-        return combo
 
-    def _add_combo_to_parent(self, parent, label, var, values):
-        """ 组合框小部件构建 helper，指定父级容器 """
-        label_widget = tk.Label(
-            parent, 
-            text=label, 
-            bg=self.bg_color,
-            font=Config.FONTS['zh_normal']
-        )
-        label_widget.pack(anchor=tk.W, pady=(2, 2))
-        
-        combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
-        setattr(combo, "label_widget", label_widget)
-        combo.pack(fill=tk.X, expand=True)
-        return combo
 
     def _format_jpg_quality_text(self):
         """ 生成 JPG 质量滑块的展示文本。 """
@@ -283,12 +235,8 @@ class ExportForm(tk.Frame):
         return "break"
 
     def set_labeled_combo_state(self, combo, state):
-        """ 同步设置下拉框状态和对应标签的启用/禁用文字颜色。 """
-        combo.config(state=state)
-        label = getattr(combo, "label_widget", None)
-        if label is not None:
-            fg = Config.COLORS['text_muted'] if state == tk.DISABLED else Config.COLORS['fg_enabled']
-            label.config(fg=fg)
+        """ 兼容旧 API：同步设置下拉框状态和对应标签的启用/禁用文字颜色。 """
+        combo.set_state(state)
 
     def set_jpg_quality_state(self, state):
         """ 根据当前格式启用或禁用 JPG 质量滑块。 """
@@ -330,7 +278,4 @@ class ExportForm(tk.Frame):
         self.browse_btn.config(state=state if is_custom else tk.DISABLED)
         
         # 自定义路径输入框的只读/常规及发灰样式控制
-        if state == tk.DISABLED:
-            self.dir_entry.config(state="disabled")
-        else:
-            self.dir_entry.config(state="normal" if is_custom else "disabled")
+        self.dir_entry.set_state(state, is_custom)

@@ -126,24 +126,12 @@ class ExportDialog:
                 # 默认当前目录模式：计算绝对化物理路径，设置禁用视觉样式
                 export_dir = os.path.join(os.getcwd(), "导出结果")
                 form.display_dir_var.set(os.path.abspath(export_dir))
-                
-                form.dir_block.config(bg="#f1f5f9", highlightbackground="#e2e8f0")
-                form.dir_entry.config(
-                    state="disabled",
-                    disabledbackground="#f1f5f9",
-                    disabledforeground="#94a3b8"
-                )
             else:
                 # 自定义位置模式：同步 custom_dir_var，高亮显示可编辑模式
-                form.dir_block.config(bg="#ffffff", highlightbackground="#cbd5e1")
-                form.dir_entry.config(
-                    state="normal",
-                    background="#ffffff",
-                    foreground="#1e293b",
-                    selectbackground="#cbd5e1"
-                )
                 if form.display_dir_var.get() != form.custom_dir_var.get():
                     form.display_dir_var.set(form.custom_dir_var.get())
+            
+            form.dir_entry.set_mode(is_custom)
                 
         def on_display_dir_changed(*_):
             # 仅在自定义模式下，路径文本框手动输入的改变才同步写回 custom_dir_var
@@ -162,12 +150,12 @@ class ExportDialog:
             fmt = form.fmt_var.get()
             is_vector = (fmt in ("svg", "pdf", "emf"))
             state = "disabled" if is_vector else "readonly"
-            form.set_labeled_combo_state(form.quality_combo, state)
-            form.set_labeled_combo_state(form.dpi_combo, state)
+            form.quality_combo.set_state(state)
+            form.dpi_combo.set_state(state)
             form.set_jpg_quality_state(tk.NORMAL if fmt == "jpg" else tk.DISABLED)
             
             # 所有物理格式均支持彩色、灰度、黑白等颜色模式
-            form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'])
+            form.color_combo.combo.config(values=Config.EXPORT_OPTIONS['colors'])
             self._update_preview()
             
         form.fmt_var.trace_add("write", on_format_changed)

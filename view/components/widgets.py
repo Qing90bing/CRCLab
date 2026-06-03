@@ -365,3 +365,91 @@ class ColorSwatchRow(tk.Frame):
             self.lbl.config(fg=Config.COLORS['fg_disabled'])
             if self.allow_transparent:
                 self.trans_check.config(state=tk.DISABLED)
+
+class LabeledGroup(ttk.LabelFrame):
+    """
+    带有原生标签外框及统一定制内边距的分组容器。
+    """
+    def __init__(self, parent, title, bg=None, inner_padx=12, inner_pady=10):
+        super().__init__(parent, text=title)
+        bg_color = bg if bg else Config.COLORS.get('main_bg', '#ffffff')
+        self.inner = tk.Frame(self, bg=bg_color, padx=inner_padx, pady=inner_pady)
+        self.inner.pack(fill=tk.BOTH, expand=True)
+
+class LabeledCombobox(tk.Frame):
+    """
+    带独立标签说明的组合下拉框，内置标签与下拉框的禁用样式联动控制。
+    """
+    def __init__(self, parent, label_text, var, values, bg=None):
+        bg_color = bg if bg else Config.COLORS.get('main_bg', '#ffffff')
+        super().__init__(parent, bg=bg_color)
+        
+        self.label_widget = tk.Label(
+            self, 
+            text=label_text, 
+            bg=bg_color,
+            font=Config.FONTS['zh_normal']
+        )
+        self.label_widget.pack(anchor=tk.W, pady=(2, 2))
+        
+        self.combo = ttk.Combobox(self, textvariable=var, values=values, state="readonly")
+        self.combo.pack(fill=tk.X, expand=True)
+
+    def set_state(self, state):
+        """ 同步设置下拉框状态和对应标签的启用/禁用文字颜色。 """
+        self.combo.config(state=state)
+        fg = Config.COLORS['text_muted'] if state == tk.DISABLED else Config.COLORS['fg_enabled']
+        self.label_widget.config(fg=fg)
+
+class ReadOnlyPathEntry(tk.Frame):
+    """
+    精美的路径显示面板，支持自定义模式下的可编辑状态及禁用时的发灰反馈，
+    并始终支持文本拖选复制，不挤占布局。
+    """
+    def __init__(self, parent, textvariable):
+        super().__init__(
+            parent,
+            bg="#f8fafc",
+            highlightthickness=1,
+            highlightbackground="#cbd5e1",
+            padx=10,
+            pady=8
+        )
+        self.entry = tk.Entry(
+            self,
+            textvariable=textvariable,
+            font=Config.FONTS['zh_normal'],
+            bg="#f8fafc",
+            fg="#475569",
+            bd=0,
+            highlightthickness=0,
+            state="readonly",
+            readonlybackground="#f8fafc",
+            selectbackground="#cbd5e1"
+        )
+        self.entry.pack(fill=tk.X, expand=True)
+        
+    def set_mode(self, is_custom):
+        """ 切换显示模式：是否为自定义编辑模式 """
+        if not is_custom:
+            self.config(bg="#f1f5f9", highlightbackground="#e2e8f0")
+            self.entry.config(
+                state="disabled",
+                disabledbackground="#f1f5f9",
+                disabledforeground="#94a3b8"
+            )
+        else:
+            self.config(bg="#ffffff", highlightbackground="#cbd5e1")
+            self.entry.config(
+                state="normal",
+                background="#ffffff",
+                foreground="#1e293b",
+                selectbackground="#cbd5e1"
+            )
+
+    def set_state(self, state, is_custom):
+        """ 配合整体界面启用/禁用状态刷新控件表现 """
+        if state == tk.DISABLED:
+            self.entry.config(state="disabled")
+        else:
+            self.entry.config(state="normal" if is_custom else "disabled")

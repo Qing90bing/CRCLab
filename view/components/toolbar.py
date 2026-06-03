@@ -61,7 +61,7 @@ class CanvasToolbar:
             btn = e.widget
             if btn == getattr(self, 'drag_btn', None) and getattr(self, '_drag_mode', False):
                 return
-            btn.config(bg='SystemButtonFace')
+            btn.config(bg='#e2e8f0')
             
         def on_leave(e):
             btn = e.widget
