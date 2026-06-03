@@ -2,7 +2,6 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog
 from config.constants import Config
-from view.widgets import ModernCheckbutton
 
 class ExportForm(tk.Frame):
     """
@@ -16,7 +15,8 @@ class ExportForm(tk.Frame):
         :param parent: 父级容器。
         :param dialog: 导出对话框 ExportDialog 协调器实例。
         """
-        super().__init__(parent, bg=Config.LAYOUT['export_ctrl_bg'], padx=16, pady=16, width=Config.LAYOUT['export_side_width'])
+        self.bg_color = parent.cget('bg')
+        super().__init__(parent, bg=self.bg_color, padx=16, pady=16, width=Config.LAYOUT['export_side_width'])
         self.dialog = dialog
         self.app = dialog.app
         self.pack_propagate(False)
@@ -25,7 +25,7 @@ class ExportForm(tk.Frame):
         tk.Label(
             self, 
             text=Config.UI_TEXT['export_params'], 
-            bg=Config.LAYOUT['export_ctrl_bg'], 
+            bg=self.bg_color,
             font=Config.FONTS['zh_bold']
         ).pack(anchor=tk.W, pady=(0, 10))
         
@@ -51,20 +51,48 @@ class ExportForm(tk.Frame):
 
     def _build_form_widgets(self):
         """ 构建表单的核心下拉组合框及自适应路径展示框 """
-        self.fmt_combo = self._add_combo(Config.UI_TEXT['export_format'], self.fmt_var, Config.EXPORT_OPTIONS['formats'])
-        self.quality_combo = self._add_combo(Config.UI_TEXT['export_quality'], self.quality_var, Config.EXPORT_OPTIONS['qualities'])
-        self.dpi_combo = self._add_combo(Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
-        self.color_combo = self._add_combo(Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
+        # 第一行：“格式” 和 “像素倍率”
+        row1_frame = tk.Frame(self, bg=self.bg_color)
+        row1_frame.pack(fill=tk.X, pady=(4, 6))
+        row1_frame.columnconfigure(0, weight=1)
+        row1_frame.columnconfigure(1, weight=1)
         
-        # 精美大尺寸自定义绘制勾选框
-        self.border_check = ModernCheckbutton(
+        col1_1 = tk.Frame(row1_frame, bg=self.bg_color)
+        col1_1.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        
+        col1_2 = tk.Frame(row1_frame, bg=self.bg_color)
+        col1_2.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        
+        self.fmt_combo = self._add_combo_to_parent(col1_1, Config.UI_TEXT['export_format'], self.fmt_var, Config.EXPORT_OPTIONS['formats'])
+        self.quality_combo = self._add_combo_to_parent(col1_2, Config.UI_TEXT['export_quality'], self.quality_var, Config.EXPORT_OPTIONS['qualities'])
+        
+        # 第二行：“DPI” 和 “颜色”
+        row2_frame = tk.Frame(self, bg=self.bg_color)
+        row2_frame.pack(fill=tk.X, pady=(6, 6))
+        row2_frame.columnconfigure(0, weight=1)
+        row2_frame.columnconfigure(1, weight=1)
+        
+        col2_1 = tk.Frame(row2_frame, bg=self.bg_color)
+        col2_1.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        
+        col2_2 = tk.Frame(row2_frame, bg=self.bg_color)
+        col2_2.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        
+        self.dpi_combo = self._add_combo_to_parent(col2_1, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
+        self.color_combo = self._add_combo_to_parent(col2_2, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
+        
+        # 使用现代原生 API 按钮 (ttk.Checkbutton)
+        style = ttk.Style()
+        style.configure('ExportCheck.TCheckbutton', background=self.bg_color, font=Config.FONTS['zh_normal'])
+        
+        self.border_check = ttk.Checkbutton(
             self, 
-            Config.UI_TEXT['export_show_border'], 
-            self.border_var, 
-            self.dialog._update_preview,
-            bg=Config.LAYOUT['export_ctrl_bg']
+            text=Config.UI_TEXT['export_show_border'], 
+            variable=self.border_var, 
+            command=self.dialog._update_preview,
+            style='ExportCheck.TCheckbutton'
         )
-        self.border_check.pack(anchor=tk.W, pady=(28, Config.LAYOUT['section_pady']))
+        self.border_check.pack(anchor=tk.W, pady=(15, 15))
         
         # 导出路径及自定义选择区
         self._add_combo(Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
@@ -103,31 +131,31 @@ class ExportForm(tk.Frame):
         self.info_group = ttk.LabelFrame(self, text=Config.UI_TEXT['export_info_group'])
         self.info_group.pack(fill=tk.X, pady=(15, 10))
         
-        info_inner = tk.Frame(self.info_group, bg=Config.LAYOUT['export_ctrl_bg'], padx=12, pady=10)
+        info_inner = tk.Frame(self.info_group, bg=self.bg_color, padx=12, pady=10)
         info_inner.pack(fill=tk.BOTH, expand=True)
         
         # 宽、高与体积预估显示标签
-        self.width_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_width_placeholder'], bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], anchor="w")
+        self.width_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_width_placeholder'], bg=self.bg_color, font=Config.FONTS['zh_normal'], anchor="w")
         self.width_lbl.pack(fill=tk.X, pady=2)
         
-        self.height_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_height_placeholder'], bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], anchor="w")
+        self.height_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_height_placeholder'], bg=self.bg_color, font=Config.FONTS['zh_normal'], anchor="w")
         self.height_lbl.pack(fill=tk.X, pady=2)
         
-        self.size_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_size_placeholder'], bg=Config.LAYOUT['export_ctrl_bg'], font=Config.FONTS['zh_normal'], anchor="w")
+        self.size_lbl = tk.Label(info_inner, text=Config.UI_TEXT['export_size_placeholder'], bg=self.bg_color, font=Config.FONTS['zh_normal'], anchor="w")
         self.size_lbl.pack(fill=tk.X, pady=2)
 
         # 底部按钮强对齐填充器 (弹簧弹性框架)
-        tk.Frame(self, bg=Config.LAYOUT['export_ctrl_bg']).pack(fill=tk.BOTH, expand=True)
+        tk.Frame(self, bg=self.bg_color).pack(fill=tk.BOTH, expand=True)
 
         # 进度条专属动画容器，高度固定为 18 像素，防止展开进度条时页面整体发生抖动
-        self.progress_container = tk.Frame(self, bg=Config.LAYOUT['export_ctrl_bg'], height=18)
+        self.progress_container = tk.Frame(self, bg=self.bg_color, height=18)
         self.progress_container.pack(fill=tk.X, pady=(8, 4))
         self.progress_container.pack_propagate(False)
         
         self.progress = ttk.Progressbar(self.progress_container, orient=tk.HORIZONTAL, mode='indeterminate')
 
         # 确认与取消动作区域
-        btn_frame = tk.Frame(self, bg=Config.LAYOUT['export_ctrl_bg'])
+        btn_frame = tk.Frame(self, bg=self.bg_color)
         btn_frame.pack(fill=tk.X, pady=(10, 16))
         
         ttk.Button(btn_frame, text=Config.UI_TEXT['btn_cancel'], command=self.dialog.dlg.destroy).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
@@ -140,12 +168,25 @@ class ExportForm(tk.Frame):
         tk.Label(
             self, 
             text=label, 
-            bg=Config.LAYOUT['export_ctrl_bg'], 
+            bg=self.bg_color,
             font=Config.FONTS['zh_normal']
         ).pack(anchor=tk.W, pady=(6, 2))
         
         combo = ttk.Combobox(self, textvariable=var, values=values, state="readonly")
         combo.pack(fill=tk.X)
+        return combo
+
+    def _add_combo_to_parent(self, parent, label, var, values):
+        """ 组合框小部件构建 helper，指定父级容器 """
+        tk.Label(
+            parent, 
+            text=label, 
+            bg=self.bg_color,
+            font=Config.FONTS['zh_normal']
+        ).pack(anchor=tk.W, pady=(2, 2))
+        
+        combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
+        combo.pack(fill=tk.X, expand=True)
         return combo
 
     def _pick_export_dir(self):
@@ -169,6 +210,7 @@ class ExportForm(tk.Frame):
         # 联动下拉选择菜单
         self.fmt_combo.config(state=state)
         self.color_combo.config(state=state)
+        self.border_check.config(state=state)
         
         is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
         self.quality_combo.config(state=state if not is_vector else tk.DISABLED)

@@ -14,7 +14,8 @@ class ExportPreview(tk.Frame):
         :param parent: 父级容器。
         :param app: 主应用程序 CRCLabApp 实例。
         """
-        super().__init__(parent, bg=Config.LAYOUT['export_preview_bg'], padx=10, pady=10)
+        bg_color = parent.cget('bg')
+        super().__init__(parent, bg=bg_color, padx=10, pady=10)
         self.app = app
         self.preview_photo = None
         
@@ -22,7 +23,7 @@ class ExportPreview(tk.Frame):
         tk.Label(
             self, 
             text=Config.UI_TEXT['export_preview'], 
-            bg=Config.LAYOUT['export_preview_bg'], 
+            bg=bg_color,
             font=Config.FONTS['zh_bold']
         ).pack(anchor=tk.W, pady=(0, 8))
         

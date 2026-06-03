@@ -24,6 +24,7 @@ class ExportDialog:
         self.app = app
         self._calc_timer = None
         self.dlg = tk.Toplevel(app.root)
+        self.dlg.configure(bg=Config.COLORS['main_bg'])
         self.dlg.title(Config.UI_TEXT['export_title'])
         self.dlg.transient(app.root)
         

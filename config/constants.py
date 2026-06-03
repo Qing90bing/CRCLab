@@ -116,7 +116,7 @@ class Config:
         'export_quality': "像素倍率",
         'export_dpi': "DPI",
         'export_color': "颜色",
-        'export_show_border': "显示纸张边框",
+        'export_show_border': "导出带黑色边框",
         'export_dir': "导出目录",
         'export_btn_browse': "浏览目录",
         'export_info_group': "预估信息",
@@ -154,9 +154,9 @@ class Config:
         'toolbar_bg': "#ffffff", # 工具栏背景
         'export_dialog_w_ratio': 0.75,   # 导出对话框对物理屏幕宽度的占比
         'export_dialog_h_ratio': 0.75,   # 导出对话框对物理屏幕高度的占比
-        'export_side_width': 450,        # 导出侧边控制栏宽度
-        'export_preview_bg': "#f8fafc",  # 导出预览区背景底色
-        'export_ctrl_bg': "#ffffff",     # 导出参数控制区背景底色
+        'export_side_width': 500,        # 导出侧边控制栏宽度
+        'export_preview_bg': "SystemButtonFace",  # 导出预览区背景底色
+        'export_ctrl_bg': "SystemButtonFace",     # 导出参数控制区背景底色
         
         # 物理主窗口几何比例常数
         'window_w_ratio': 0.95,          # 启动窗口对屏幕宽度的占比
