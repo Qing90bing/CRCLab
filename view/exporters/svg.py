@@ -62,7 +62,7 @@ class SVGExporter(BaseExporter):
         ctx['color_mode'] = color_mode
         ctx['is_preview'] = False
         
-        svg_content = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, ctx)
+        svg_content, _, _ = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, ctx)
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
 
@@ -76,9 +76,9 @@ class SVGExporter(BaseExporter):
         svg_ctx['show_border'] = show_border
         svg_ctx['is_preview'] = False
         
-        svg_content = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, svg_ctx)
-        size_kb = len(svg_content.encode("utf-8")) / 1024.0
-        return f"{size_kb:.2f} KB"
+        svg_content, w_sheet, h_sheet = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, svg_ctx)
+        size_bytes = len(svg_content.encode("utf-8"))
+        return size_bytes, w_sheet, h_sheet
 
     @staticmethod
     def render_to_svg(renderer, data, dividend, divisor, q, rows, ctx):
@@ -109,7 +109,7 @@ class SVGExporter(BaseExporter):
         # 3. 获取公式的裁剪边界盒
         bbox = img_temp.getbbox()
         if not bbox:
-            return ""
+            return "", 0, 0
             
         x0, y0, x1, y1 = bbox
         
@@ -155,7 +155,7 @@ class SVGExporter(BaseExporter):
         )
         svg_footer = "\n</svg>"
         
-        return svg_header + "\n".join(svg_elements) + svg_footer
+        return svg_header + "\n".join(svg_elements) + svg_footer, w_sheet, h_sheet
 
     @staticmethod
     def _translate_text_cmd(cmd, x0, y0, ssaa_factor, p, ctx, ctx_ssaa, svg_elements):

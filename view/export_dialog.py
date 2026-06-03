@@ -23,6 +23,7 @@ class ExportDialog:
         """
         self.app = app
         self._calc_timer = None
+        self._last_scale_params = (None, None, None)
         self.dlg = tk.Toplevel(app.root)
         self.dlg.configure(bg=Config.COLORS['main_bg'])
         self.dlg.title(Config.UI_TEXT['export_title'])
@@ -159,13 +160,8 @@ class ExportDialog:
             form.quality_combo.config(state=state)
             form.dpi_combo.config(state=state)
             
-            # 矢量格式不支持黑白双色，对颜色列表做过滤
-            if is_vector:
-                form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'][:2])
-                if form.color_var.get() == Config.EXPORT_OPTIONS['colors'][2]:
-                    form.color_var.set(Config.EXPORT_OPTIONS['colors'][0])
-            else:
-                form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'])
+            # 所有物理格式均支持彩色、灰度、黑白等颜色模式
+            form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'])
             self._update_preview()
             
         form.fmt_var.trace_add("write", on_format_changed)
@@ -216,13 +212,14 @@ class ExportDialog:
             else:
                 img = img.convert("L")
         elif form.color_var.get() == color_opt[2]:
-            # 二值黑白转换
+            # 二值黑白转换（采用纯阈值过滤，避免 Floyd-Steinberg 抖动产生的杂点）
             if img.mode in ("RGBA", "LA"):
                 r, g, b, a = img.split()
-                rgb_bw = Image.merge("RGB", (r, g, b)).convert("1").convert("L")
+                rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
+                rgb_bw = rgb_gray.point(lambda x: 0 if x < 128 else 255, 'L')
                 img = Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
             else:
-                img = img.convert("1")
+                img = img.convert("L").point(lambda x: 0 if x < 128 else 255, 'L').convert("1")
         
         # 5. 更新导出宽度、高度及文件大小的指示文本
         self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
@@ -241,14 +238,23 @@ class ExportDialog:
             opt_q[2]: 3, opt_q[3]: 4
         }.get(form.quality_var.get(), 1)
         
-        if fmt in ("svg", "pdf", "emf"):
-            form.width_lbl.config(text=f"导出宽度: {img.width} 像素 (矢量)")
-            form.height_lbl.config(text=f"导出高度: {img.height} 像素 (矢量)")
-        else:
-            w_real = img.width * multiplier
-            h_real = img.height * multiplier
-            form.width_lbl.config(text=f"导出宽度: {w_real} 像素")
-            form.height_lbl.config(text=f"导出高度: {h_real} 像素")
+        dpi_val = form.dpi_var.get()
+        dpi_scale = dpi_val / 96.0
+        
+        # 检查是否真的改变了影响像素物理大小的缩放比例或格式参数，以避免改变边框/色彩时刷新粗估导致数字跳变
+        current_params = (multiplier, dpi_val, fmt)
+        scale_changed = (current_params != getattr(self, '_last_scale_params', (None, None, None)))
+        self._last_scale_params = current_params
+        
+        if scale_changed:
+            if fmt in ("svg", "pdf", "emf"):
+                form.width_lbl.config(text="导出宽度: （矢量）")
+                form.height_lbl.config(text="导出高度: （矢量）")
+            else:
+                w_real = int(img.width * multiplier * dpi_scale)
+                h_real = int(img.height * multiplier * dpi_scale)
+                form.width_lbl.config(text=f"导出宽度: {w_real} 像素")
+                form.height_lbl.config(text=f"导出高度: {h_real} 像素")
             
         # 精密估算大小（应用防抖）
         self._debounce_size_calc(data, dividend, divisor, q, rows, ctx, multiplier, fmt)
@@ -278,22 +284,33 @@ class ExportDialog:
             def worker():
                 try:
                     if fmt in ("svg", "pdf", "emf"):
-                        size_text = Exporter.estimate_vector_size(
+                        size_bytes, w, h = Exporter.estimate_vector_size(
                             self.app, fmt, data, dividend, divisor, q, rows, ctx,
                             form.color_var.get(), form.border_var.get()
                         )
                     else:
                         save_fmt = "JPEG" if fmt == "jpg" else "PNG"
-                        precise_size = Exporter.calculate_precise_bitmap_size(
+                        size_bytes, w, h = Exporter.calculate_precise_bitmap_size(
                             self.app, data, dividend, divisor, q, rows, ctx,
                             form.color_var.get(), form.border_var.get(), multiplier, save_fmt, form.dpi_var.get()
                         )
-                        size_text = f"{precise_size:.1f} KB"
+                    
+                    if size_bytes > 0:
+                        size_kb = size_bytes / 1024.0
+                        size_text = f"{size_bytes:,} 字节 ({size_kb:.1f} KB)"
+                    else:
+                        size_text = "估算失败"
                     
                     # 线程安全回调
                     def update_ui():
                         if getattr(self, '_current_calc_id', None) == calc_id:
                             form.size_lbl.config(text=f"预估大小: {size_text}")
+                            if fmt in ("svg", "pdf", "emf"):
+                                form.width_lbl.config(text="导出宽度: （矢量）")
+                                form.height_lbl.config(text="导出高度: （矢量）")
+                            else:
+                                form.width_lbl.config(text=f"导出宽度: {w} 像素")
+                                form.height_lbl.config(text=f"导出高度: {h} 像素")
                             
                     self.dlg.after(0, update_ui)
                 except Exception:

@@ -154,7 +154,7 @@ class Config:
         'toolbar_bg': "#ffffff", # 工具栏背景
         'export_dialog_w_ratio': 0.75,   # 导出对话框对物理屏幕宽度的占比
         'export_dialog_h_ratio': 0.75,   # 导出对话框对物理屏幕高度的占比
-        'export_side_width': 500,        # 导出侧边控制栏宽度
+        'export_side_width': 540,        # 导出侧边控制栏宽度
         'export_preview_bg': "SystemButtonFace",  # 导出预览区背景底色
         'export_ctrl_bg': "SystemButtonFace",     # 导出参数控制区背景底色
         

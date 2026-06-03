@@ -48,11 +48,11 @@ class Exporter:
     @staticmethod
     def estimate_vector_size(app, fmt, data, dividend, divisor, q, rows, ctx, color_mode, show_border):
         """
-        测算并返回矢量格式 (SVG, PDF, EMF) 导出的预估文件大小 (格式化为字符串，如 "12.45 KB")。
+        测算并返回矢量格式 (SVG, PDF, EMF) 导出的预估文件大小及精确宽高长宽。
         """
         exporter_cls = EXPORTERS.get(fmt.lower())
         if not exporter_cls:
-            return "估算失败"
+            return "估算失败", 0, 0
         return exporter_cls.estimate_size(
             app, data, dividend, divisor, q, rows, ctx, color_mode, show_border,
             fmt=fmt
@@ -61,17 +61,13 @@ class Exporter:
     @staticmethod
     def calculate_precise_bitmap_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, multiplier, save_fmt, dpi_val):
         """
-        高分辨率位图在后台模拟物理重绘并精密评估大小 (返回浮点数 KB，以对接防抖刷新接口)。
+        高分辨率位图在后台模拟物理重绘并精密评估大小和真实宽高 (返回元组 (size_bytes, w, h))。
         """
         exporter_cls = EXPORTERS.get("png") if save_fmt.lower() not in EXPORTERS else EXPORTERS.get(save_fmt.lower())
         if not exporter_cls:
-            return 0.0
+            return 0, 0, 0
             
-        size_str = exporter_cls.estimate_size(
+        return exporter_cls.estimate_size(
             app, data, dividend, divisor, q, rows, ctx, color_mode, show_border,
             multiplier=multiplier, dpi_val=dpi_val, fmt=save_fmt
         )
-        try:
-            return float(size_str.replace("KB", "").strip())
-        except Exception:
-            return 0.0

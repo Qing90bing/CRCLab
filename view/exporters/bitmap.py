@@ -14,13 +14,14 @@ class BitmapExporter(BaseExporter):
         """
         multiplier = kwargs.get('multiplier', 1)
         dpi_val = kwargs.get('dpi_val', 96)
+        dpi_scale = dpi_val / 96.0
         
         data = app.data_var.get().strip()
         divisor = app.divisor_var.get().strip()
         q, rows, dividend = app.engine.calculate(data, divisor)
         
         ctx = app._get_render_context()
-        ctx['view_scale'] = 1.0 * multiplier
+        ctx['view_scale'] = 1.0 * multiplier * dpi_scale
         ctx['show_border'] = show_border
         ctx['is_preview'] = False
         
@@ -38,11 +39,12 @@ class BitmapExporter(BaseExporter):
         """
         multiplier = kwargs.get('multiplier', 1)
         dpi_val = kwargs.get('dpi_val', 96)
+        dpi_scale = dpi_val / 96.0
         fmt = kwargs.get('fmt', 'png')
         
         # 1. 直接以目标倍率渲染真实的图像
         ctx_real = ctx.copy()
-        ctx_real['view_scale'] = 1.0 * multiplier
+        ctx_real['view_scale'] = 1.0 * multiplier * dpi_scale
         ctx_real['show_border'] = show_border
         ctx_real['is_preview'] = False
         
@@ -53,9 +55,9 @@ class BitmapExporter(BaseExporter):
         # 2. 模拟真实保存的二进制写入，获取 100% 精确的物理字节大小
         bio = io.BytesIO()
         img_real.save(bio, format=save_fmt, dpi=(dpi_val, dpi_val))
-        size_kb = len(bio.getvalue()) / 1024.0
+        size_bytes = len(bio.getvalue())
         
-        return f"{size_kb:.1f} KB"
+        return size_bytes, img_real.width, img_real.height
 
     @staticmethod
     def _apply_color_mode(img, color_mode, save_fmt):
@@ -74,7 +76,7 @@ class BitmapExporter(BaseExporter):
             if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
                 return img.convert("L")
             elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
-                return img.convert("1")
+                return img.convert("L").point(lambda x: 0 if x < 128 else 255, 'L').convert("1")
             else:
                 return img.convert("RGB")
                 
@@ -91,9 +93,10 @@ class BitmapExporter(BaseExporter):
             # 黑白模式，无损保留透明通道
             if img.mode in ("RGBA", "LA"):
                 r, g, b, a = img.split()
-                rgb_bw = Image.merge("RGB", (r, g, b)).convert("1").convert("L")
+                rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
+                rgb_bw = rgb_gray.point(lambda x: 0 if x < 128 else 255, 'L')
                 return Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
-            return img.convert("1")
+            return img.convert("L").point(lambda x: 0 if x < 128 else 255, 'L').convert("1")
             
         # 3. PNG 彩色模式保留完整的 RGBA，支持真正的透明背景
         return img

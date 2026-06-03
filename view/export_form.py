@@ -95,7 +95,7 @@ class ExportForm(tk.Frame):
         self.border_check.pack(anchor=tk.W, pady=(15, 15))
         
         # 导出路径及自定义选择区
-        self._add_combo(Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
+        self.dir_mode_combo = self._add_combo(Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
   
         self.browse_btn = ttk.Button(self, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
         self.browse_btn.pack(fill=tk.X, pady=(5, 8))
@@ -207,14 +207,16 @@ class ExportForm(tk.Frame):
             if isinstance(child, ttk.Button):
                 child.config(state=state)
         
-        # 联动下拉选择菜单
-        self.fmt_combo.config(state=state)
-        self.color_combo.config(state=state)
+        # 联动下拉选择菜单（当启用时，下拉菜单应设置为 readonly 而非 normal，防止用户输入文字）
+        combo_state = "readonly" if state == tk.NORMAL else tk.DISABLED
+        self.fmt_combo.config(state=combo_state)
+        self.color_combo.config(state=combo_state)
+        self.dir_mode_combo.config(state=combo_state)
         self.border_check.config(state=state)
         
         is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
-        self.quality_combo.config(state=state if not is_vector else tk.DISABLED)
-        self.dpi_combo.config(state=state if not is_vector else tk.DISABLED)
+        self.quality_combo.config(state=combo_state if not is_vector else tk.DISABLED)
+        self.dpi_combo.config(state=combo_state if not is_vector else tk.DISABLED)
         
         is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
         self.browse_btn.config(state=state if is_custom else tk.DISABLED)

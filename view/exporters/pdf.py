@@ -32,7 +32,7 @@ class PDFExporter(BaseExporter):
         ctx['color_mode'] = color_mode
         
         # 1. 先行渲染生成标准的 SVG XML 字符串
-        svg_content = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, ctx)
+        svg_content, _, _ = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, ctx)
         
         # 2. 将 SVG 流读入 Reportlab 进行矢量转换并保存成文件
         svg_io = io.BytesIO(svg_content.encode("utf-8"))
@@ -45,14 +45,14 @@ class PDFExporter(BaseExporter):
         在后台内存中模拟完整的 SVG 到 PDF 的流转及矢量序列化，获取 PDF 的精准物理大小。
         """
         if not HAS_PDF_DEPENDENCY:
-            return "PDF依赖未就绪"
+            return 0, 0, 0
         try:
             pdf_ctx = ctx.copy()
             pdf_ctx['color_mode'] = color_mode
             pdf_ctx['show_border'] = show_border
             
             # 1. 渲染生成临时 SVG 代码
-            svg_content = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, pdf_ctx)
+            svg_content, w, h = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, pdf_ctx)
             
             # 2. 将流注入 Reportlab 的 PDF 物理流包装器
             svg_io = io.BytesIO(svg_content.encode("utf-8"))
@@ -62,7 +62,7 @@ class PDFExporter(BaseExporter):
             renderPDF.drawToFile(drawing, pdf_bio)
             
             # 3. 测量字节流长度并格式化
-            size_kb = len(pdf_bio.getvalue()) / 1024.0
-            return f"{size_kb:.2f} KB"
+            size_bytes = len(pdf_bio.getvalue())
+            return size_bytes, w, h
         except Exception:
-            return "估算失败"
+            return 0, 0, 0

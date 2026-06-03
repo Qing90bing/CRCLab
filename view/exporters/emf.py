@@ -79,13 +79,14 @@ class EMFInterceptDraw:
     """
     基于 ctypes.windll.gdi32 的 Windows EMF 绘图指令拦截代理。
     """
-    def __init__(self, hdc, x0=0, y0=0, ssaa_factor=1, p=0):
+    def __init__(self, hdc, x0=0, y0=0, ssaa_factor=1, p=0, ctx=None):
         self.hdc = hdc
         self.x0 = x0
         self.y0 = y0
         self.sf = ssaa_factor
         self.p = p
         self.gdi = ctypes.windll.gdi32
+        self.ctx = ctx or {}
 
     def _t_x(self, x):
         return int((x - self.x0) / self.sf + self.p)
@@ -94,9 +95,21 @@ class EMFInterceptDraw:
         return int((y - self.y0) / self.sf + self.p)
 
     def _rgb_to_colorref(self, fill_str):
-        """ Hex 颜色串 (#RRGGBB) 转 Windows COLORREF (0x00BBGGRR) """
+        """ Hex 颜色串 (#RRGGBB) 转 Windows COLORREF (0x00BBGGRR)，支持灰度和黑白色彩模式转换 """
         h = fill_str.lstrip('#')
         r, g, b = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+        
+        color_mode = self.ctx.get('color_mode', Config.EXPORT_OPTIONS['colors'][0])
+        if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
+            # 灰度转换
+            y = int(0.299 * r + 0.587 * g + 0.114 * b)
+            r, g, b = y, y, y
+        elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
+            # 纯黑白双色转换
+            y = int(0.299 * r + 0.587 * g + 0.114 * b)
+            val = 255 if y >= 127 else 0
+            r, g, b = val, val, val
+            
         return r | (g << 8) | (b << 16)
 
     def rectangle(self, xy, fill=None, outline=None, width=1, *args, **kwargs):
@@ -216,32 +229,47 @@ class EMFExporter(BaseExporter):
     @staticmethod
     def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
         """
-        使用 Windows GDI 原生接口创建虚拟内存 EMF 设备，并精确计算其产生的底层二进制字节流大小。
+        使用 Windows GDI 原生接口创建虚拟内存 EMF 设备，并精确计算其产生的底层二进制字节流大小及真实分辨率。
         """
         if not HAS_EMF_DEPENDENCY:
-            return "EMF仅限Windows系统"
+            return 0, 0, 0
         try:
+            renderer = app.renderer
+            ssaa_factor = Config.LAYOUT['ssaa_factor']
+            ctx_ssaa = ctx.copy()
+            ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
+            L = renderer._calculate_layout(ctx_ssaa, dividend, divisor)
+            ox, oy, w_temp, h_temp = renderer._estimate_bounds(ctx_ssaa, L, rows)
+            
+            bbox = EMFExporter._calc_temp_bbox(renderer, data, q, dividend, divisor, rows, ctx_ssaa, L, ox, oy, w_temp, h_temp)
+            if not bbox:
+                return 0, 0, 0
+                
+            x0, y0, x1, y1 = bbox
+            p = int(ctx['padding'] * ctx['view_scale'])
+            w_sheet = int((x1 - x0) / ssaa_factor) + 2 * p
+            h_sheet = int((y1 - y0) / ssaa_factor) + 2 * p
+
             hdc = ctypes.windll.gdi32.CreateEnhMetaFileW(0, None, None, "CRCLab Chart")
             if not hdc:
-                return "估算失败"
+                return 0, 0, 0
                 
             EMFExporter.draw_to_emf(app, hdc, data, dividend, divisor, q, rows, ctx)
             hemf = ctypes.windll.gdi32.CloseEnhMetaFile(hdc)
             if not hemf:
-                return "估算失败"
+                return 0, 0, 0
                 
             size = ctypes.windll.gdi32.GetEnhMetaFileBits(hemf, 0, None)
             if size > 0:
                 buf = ctypes.create_string_buffer(size)
                 ctypes.windll.gdi32.GetEnhMetaFileBits(hemf, size, buf)
-                size_kb = len(buf.raw) / 1024.0
-                size_text = f"{size_kb:.2f} KB"
+                size_bytes = len(buf.raw)
             else:
-                size_text = "估算失败"
+                size_bytes = 0
             ctypes.windll.gdi32.DeleteEnhMetaFile(hemf)
-            return size_text
+            return size_bytes, w_sheet, h_sheet
         except Exception:
-            return "估算失败"
+            return 0, 0, 0
 
     @staticmethod
     def draw_to_emf(app, hdc, data, dividend, divisor, q, rows, ctx):
@@ -265,7 +293,7 @@ class EMFExporter(BaseExporter):
         p = int(ctx['padding'] * ctx['view_scale'])
         
         # 2. 调用 GDI 拦截器进行矢量图元物理绘制
-        draw_proxy = EMFInterceptDraw(hdc, x0, y0, ssaa_factor, p)
+        draw_proxy = EMFInterceptDraw(hdc, x0, y0, ssaa_factor, p, ctx)
         EMFExporter._draw_emf_elements(renderer, draw_proxy, data, q, dividend, divisor, rows, ctx_ssaa, L, ox, oy, x0, y0, x1, y1, p, ssaa_factor)
 
     @staticmethod
