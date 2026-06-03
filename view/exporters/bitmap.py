@@ -14,6 +14,7 @@ class BitmapExporter(BaseExporter):
         """
         multiplier = kwargs.get('multiplier', 1)
         dpi_val = kwargs.get('dpi_val', 96)
+        jpg_quality = max(10, min(100, int(kwargs.get('jpg_quality', 80))))
         dpi_scale = dpi_val / 96.0
         
         data = app.data_var.get().strip()
@@ -29,8 +30,11 @@ class BitmapExporter(BaseExporter):
         img = app.renderer.render(data, dividend, divisor, q, rows, ctx)
         save_fmt = "JPEG" if out_path.lower().endswith((".jpg", ".jpeg")) else "PNG"
         img = BitmapExporter._apply_color_mode(img, color_mode, save_fmt)
-            
-        img.save(out_path, format=save_fmt, dpi=(dpi_val, dpi_val))
+
+        save_kwargs = {'format': save_fmt, 'dpi': (dpi_val, dpi_val)}
+        if save_fmt == "JPEG":
+            save_kwargs['quality'] = jpg_quality
+        img.save(out_path, **save_kwargs)
 
     @staticmethod
     def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
@@ -39,6 +43,7 @@ class BitmapExporter(BaseExporter):
         """
         multiplier = kwargs.get('multiplier', 1)
         dpi_val = kwargs.get('dpi_val', 96)
+        jpg_quality = max(10, min(100, int(kwargs.get('jpg_quality', 80))))
         dpi_scale = dpi_val / 96.0
         fmt = kwargs.get('fmt', 'png')
         
@@ -54,7 +59,10 @@ class BitmapExporter(BaseExporter):
         
         # 2. 模拟真实保存的二进制写入，获取 100% 精确的物理字节大小
         bio = io.BytesIO()
-        img_real.save(bio, format=save_fmt, dpi=(dpi_val, dpi_val))
+        save_kwargs = {'format': save_fmt, 'dpi': (dpi_val, dpi_val)}
+        if save_fmt == "JPEG":
+            save_kwargs['quality'] = jpg_quality
+        img_real.save(bio, **save_kwargs)
         size_bytes = len(bio.getvalue())
         
         return size_bytes, img_real.width, img_real.height

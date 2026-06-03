@@ -155,10 +155,12 @@ class ExportDialog:
 
         # 2. 导出文件物理格式切换联动（如果是矢量格式，则置灰倍数与分辨率）
         def on_format_changed(*_):
-            is_vector = (form.fmt_var.get() in ("svg", "pdf", "emf"))
+            fmt = form.fmt_var.get()
+            is_vector = (fmt in ("svg", "pdf", "emf"))
             state = "disabled" if is_vector else "readonly"
-            form.quality_combo.config(state=state)
-            form.dpi_combo.config(state=state)
+            form.set_labeled_combo_state(form.quality_combo, state)
+            form.set_labeled_combo_state(form.dpi_combo, state)
+            form.set_jpg_quality_state(tk.NORMAL if fmt == "jpg" else tk.DISABLED)
             
             # 所有物理格式均支持彩色、灰度、黑白等颜色模式
             form.color_combo.config(values=Config.EXPORT_OPTIONS['colors'])
@@ -292,7 +294,8 @@ class ExportDialog:
                         save_fmt = "JPEG" if fmt == "jpg" else "PNG"
                         size_bytes, w, h = Exporter.calculate_precise_bitmap_size(
                             self.app, data, dividend, divisor, q, rows, ctx,
-                            form.color_var.get(), form.border_var.get(), multiplier, save_fmt, form.dpi_var.get()
+                            form.color_var.get(), form.border_var.get(), multiplier, save_fmt, form.dpi_var.get(),
+                            int(round(float(form.jpg_quality_var.get())))
                         )
                     
                     if size_bytes > 0:
@@ -377,6 +380,7 @@ class ExportDialog:
         show_border = form.border_var.get()
         color_mode = form.color_var.get()
         quality = form.quality_var.get()
+        jpg_quality = int(round(float(form.jpg_quality_var.get())))
         dpi = form.dpi_var.get()
         
         # 4. 后台物理写入
@@ -388,6 +392,7 @@ class ExportDialog:
                     show_border,
                     color_mode,
                     quality,
+                    jpg_quality,
                     dpi,
                     dir_mode,
                     custom_dir

@@ -129,10 +129,8 @@ class CRCLabApp:
             pass
             
         # 组件高度对齐配置
-        # 对 vista 主题的 Entry、Combobox 和 Button 进行 Padding 微调以使高度对齐
+        # 下拉框使用主题默认尺寸，避免全局 padding/font 覆盖导致各处高度被定制化撑大。
         self.style.configure('TEntry', padding=(10, 7))
-        self.style.configure('TCombobox', padding=(10, 6))
-        self.style.configure('TCombobox', font=Config.FONTS['combo'])
         
         # 修复复选框与原生 LabelFrame 标题默认英文字体的问题
         self.style.configure('TCheckbutton', font=Config.FONTS['zh_normal'])
@@ -141,13 +139,12 @@ class CRCLabApp:
         
         # 终极保险：强行接管系统中所有原生 Tk 组件及 Combobox 弹出列表的字体
         self.root.option_add('*Font', Config.FONTS['zh_normal'])
-        self.root.option_add('*TCombobox*Listbox.font', Config.FONTS['combo'])
         
         # 常规按钮样式，统一 padding 配置
         self.style.configure('TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
         
-        # 高亮动作按钮样式，使用粗体并统一 padding 以确保与常规按钮高度等高
-        self.style.configure('Action.TButton', font=Config.FONTS['zh_bold'], padding=(10, 5))
+        # 高亮动作按钮样式，统一 padding 以确保与常规按钮高度等高
+        self.style.configure('Action.TButton', font=Config.FONTS['zh_normal'], padding=(10, 5))
         
         # 顶部浮动工具栏按钮样式（不再使用，改用原生 tk.Button）
 

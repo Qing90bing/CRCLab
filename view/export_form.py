@@ -42,6 +42,7 @@ class ExportForm(tk.Frame):
         """ 显式初始化所有局部表单控制相关的 Tkinter 变量 """
         self.fmt_var = tk.StringVar(value=Config.EXPORT_VALUES['format'])
         self.quality_var = tk.StringVar(value=Config.EXPORT_VALUES['quality'])
+        self.jpg_quality_var = tk.DoubleVar(value=Config.EXPORT_VALUES['jpg_quality'])
         self.dpi_var = tk.IntVar(value=Config.EXPORT_VALUES['dpi'])
         self.color_var = tk.StringVar(value=Config.EXPORT_VALUES['color'])
         self.border_var = tk.BooleanVar(value=Config.EXPORT_VALUES['show_border'])
@@ -80,6 +81,35 @@ class ExportForm(tk.Frame):
         
         self.dpi_combo = self._add_combo_to_parent(col2_1, Config.UI_TEXT['export_dpi'], self.dpi_var, Config.EXPORT_OPTIONS['dpis'])
         self.color_combo = self._add_combo_to_parent(col2_2, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
+
+        self.jpg_quality_label = tk.Label(
+            self,
+            text=self._format_jpg_quality_text(),
+            bg=self.bg_color,
+            font=Config.FONTS['zh_normal'],
+            anchor="w"
+        )
+        self.jpg_quality_label.pack(fill=tk.X, pady=(6, 2))
+
+        style = ttk.Style()
+        style.configure(
+            'Export.Horizontal.TScale',
+            background=self.bg_color,
+            troughcolor=self.bg_color
+        )
+
+        self.jpg_quality_scale = ttk.Scale(
+            self,
+            from_=10,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.jpg_quality_var,
+            command=self._on_jpg_quality_changed,
+            style='Export.Horizontal.TScale'
+        )
+        self.jpg_quality_scale.pack(fill=tk.X)
+        self.jpg_quality_scale.bind("<Button-1>", self._on_jpg_quality_pointer)
+        self.jpg_quality_scale.bind("<B1-Motion>", self._on_jpg_quality_pointer)
         
         # 使用现代原生 API 按钮 (ttk.Checkbutton)
         style = ttk.Style()
@@ -165,29 +195,97 @@ class ExportForm(tk.Frame):
 
     def _add_combo(self, label, var, values):
         """ 组合框小部件构建 helper """
-        tk.Label(
+        label_widget = tk.Label(
             self, 
             text=label, 
             bg=self.bg_color,
             font=Config.FONTS['zh_normal']
-        ).pack(anchor=tk.W, pady=(6, 2))
+        )
+        label_widget.pack(anchor=tk.W, pady=(6, 2))
         
         combo = ttk.Combobox(self, textvariable=var, values=values, state="readonly")
+        combo.label_widget = label_widget
         combo.pack(fill=tk.X)
         return combo
 
     def _add_combo_to_parent(self, parent, label, var, values):
         """ 组合框小部件构建 helper，指定父级容器 """
-        tk.Label(
+        label_widget = tk.Label(
             parent, 
             text=label, 
             bg=self.bg_color,
             font=Config.FONTS['zh_normal']
-        ).pack(anchor=tk.W, pady=(2, 2))
+        )
+        label_widget.pack(anchor=tk.W, pady=(2, 2))
         
         combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
+        combo.label_widget = label_widget
         combo.pack(fill=tk.X, expand=True)
         return combo
+
+    def _format_jpg_quality_text(self):
+        """ 生成 JPG 质量滑块的展示文本。 """
+        value = int(round(float(self.jpg_quality_var.get())))
+        if value < 50:
+            level = "低"
+        elif value < 80:
+            level = "中"
+        else:
+            level = "高"
+        return f"{Config.UI_TEXT['export_jpg_quality']}：{value}%（{level}）"
+
+    def _on_jpg_quality_changed(self, _=None):
+        """ 同步质量文案，并在 JPG 格式下刷新预估大小。 """
+        value = int(round(float(self.jpg_quality_var.get())))
+        value = max(10, min(100, value))
+        if float(self.jpg_quality_var.get()) != value:
+            self.jpg_quality_var.set(value)
+        self.jpg_quality_label.config(text=self._format_jpg_quality_text())
+        if self.fmt_var.get() == "jpg":
+            self.dialog._update_preview()
+
+    def _on_jpg_quality_pointer(self, event):
+        """ 让质量滑块支持点击轨道立即跳转到对应百分比。 """
+        if "disabled" in self.jpg_quality_scale.state():
+            return "break"
+
+        low = float(self.jpg_quality_scale.cget("from"))
+        high = float(self.jpg_quality_scale.cget("to"))
+        try:
+            start_coords = self.jpg_quality_scale.tk.call(self.jpg_quality_scale._w, "coords", low)
+            end_coords = self.jpg_quality_scale.tk.call(self.jpg_quality_scale._w, "coords", high)
+            if isinstance(start_coords, str):
+                start_coords = self.jpg_quality_scale.tk.splitlist(start_coords)
+            if isinstance(end_coords, str):
+                end_coords = self.jpg_quality_scale.tk.splitlist(end_coords)
+            x0 = float(start_coords[0])
+            x1 = float(end_coords[0])
+        except Exception:
+            x0 = 0.0
+            x1 = float(max(1, self.jpg_quality_scale.winfo_width()))
+
+        if x0 == x1:
+            return "break"
+
+        ratio = (event.x - x0) / (x1 - x0)
+        value = int(round(low + max(0.0, min(1.0, ratio)) * (high - low)))
+        self.jpg_quality_var.set(value)
+        self._on_jpg_quality_changed()
+        return "break"
+
+    def set_labeled_combo_state(self, combo, state):
+        """ 同步设置下拉框状态和对应标签的启用/禁用文字颜色。 """
+        combo.config(state=state)
+        label = getattr(combo, "label_widget", None)
+        if label is not None:
+            fg = Config.COLORS['text_muted'] if state == tk.DISABLED else Config.COLORS['fg_enabled']
+            label.config(fg=fg)
+
+    def set_jpg_quality_state(self, state):
+        """ 根据当前格式启用或禁用 JPG 质量滑块。 """
+        self.jpg_quality_scale.config(state=state)
+        fg = Config.COLORS['fg_enabled'] if state == tk.NORMAL else Config.COLORS['text_muted']
+        self.jpg_quality_label.config(fg=fg, text=self._format_jpg_quality_text())
 
     def _pick_export_dir(self):
         """ 打开系统文件夹浏览器以挑选目标路径 """
@@ -209,14 +307,15 @@ class ExportForm(tk.Frame):
         
         # 联动下拉选择菜单（当启用时，下拉菜单应设置为 readonly 而非 normal，防止用户输入文字）
         combo_state = "readonly" if state == tk.NORMAL else tk.DISABLED
-        self.fmt_combo.config(state=combo_state)
-        self.color_combo.config(state=combo_state)
-        self.dir_mode_combo.config(state=combo_state)
+        self.set_labeled_combo_state(self.fmt_combo, combo_state)
+        self.set_labeled_combo_state(self.color_combo, combo_state)
+        self.set_labeled_combo_state(self.dir_mode_combo, combo_state)
         self.border_check.config(state=state)
         
         is_vector = (self.fmt_var.get() in ("svg", "pdf", "emf"))
-        self.quality_combo.config(state=combo_state if not is_vector else tk.DISABLED)
-        self.dpi_combo.config(state=combo_state if not is_vector else tk.DISABLED)
+        self.set_labeled_combo_state(self.quality_combo, combo_state if not is_vector else tk.DISABLED)
+        self.set_labeled_combo_state(self.dpi_combo, combo_state if not is_vector else tk.DISABLED)
+        self.set_jpg_quality_state(tk.NORMAL if state == tk.NORMAL and self.fmt_var.get() == "jpg" else tk.DISABLED)
         
         is_custom = (self.dir_mode_var.get() == Config.EXPORT_OPTIONS['dir_modes'][1])
         self.browse_btn.config(state=state if is_custom else tk.DISABLED)

@@ -11,7 +11,7 @@ class Exporter:
     这样即使以后增加格式，此外部协调器及 UI 控制层也能保持 100% 稳定，符合开闭原则（OCP）。
     """
     @staticmethod
-    def export(app, fmt, show_border, color_mode, quality_name, dpi_val, dir_mode, custom_dir):
+    def export(app, fmt, show_border, color_mode, quality_name, jpg_quality, dpi_val, dir_mode, custom_dir):
         """
         统一物理导出入口。通过工厂映射字典分发至具体物理插件。
         """
@@ -41,7 +41,7 @@ class Exporter:
             
         exporter_cls.save(
             app, out_path, show_border, color_mode,
-            multiplier=multiplier, dpi_val=dpi_val
+            multiplier=multiplier, dpi_val=dpi_val, jpg_quality=jpg_quality
         )
         return out_path, export_dir
 
@@ -59,7 +59,7 @@ class Exporter:
         )
 
     @staticmethod
-    def calculate_precise_bitmap_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, multiplier, save_fmt, dpi_val):
+    def calculate_precise_bitmap_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, multiplier, save_fmt, dpi_val, jpg_quality=80):
         """
         高分辨率位图在后台模拟物理重绘并精密评估大小和真实宽高 (返回元组 (size_bytes, w, h))。
         """
@@ -69,5 +69,5 @@ class Exporter:
             
         return exporter_cls.estimate_size(
             app, data, dividend, divisor, q, rows, ctx, color_mode, show_border,
-            multiplier=multiplier, dpi_val=dpi_val, fmt=save_fmt
+            multiplier=multiplier, dpi_val=dpi_val, fmt=save_fmt, jpg_quality=jpg_quality
         )

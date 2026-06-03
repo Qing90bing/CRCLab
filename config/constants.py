@@ -115,6 +115,7 @@ class Config:
         'export_format': "格式",
         'export_quality': "像素倍率",
         'export_dpi': "DPI",
+        'export_jpg_quality': "质量",
         'export_color': "颜色",
         'export_show_border': "导出带黑色边框",
         'export_dir': "导出目录",
@@ -233,6 +234,7 @@ class Config:
     EXPORT_VALUES = {
         'format': "png",                          # 默认物理导出格式
         'quality': "默认尺寸",                # 默认物理画面缩放倍数
+        'jpg_quality': 80,                         # 默认 JPG 压缩质量
         'dpi': 300,                                # 默认物理 DPI 密度
         'color': "彩色",                          # 默认物理导出色彩模式
         'show_border': False,                      # 默认是否绘制纸张框线
@@ -247,7 +249,7 @@ class Config:
             "默认尺寸", "默认尺寸2倍",
             "默认尺寸3倍", "默认尺寸4倍"
         ],
-        'dpis': [72, 96, 150, 200, 300, 600],
+        'dpis': [72, 96, 150, 200, 300, 600, 1200],
         'colors': ["彩色", "灰度", "黑白"],
         'dir_modes': ["当前目录（导出结果）", "自定义目录"]
     }
