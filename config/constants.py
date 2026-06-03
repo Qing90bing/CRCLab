@@ -112,6 +112,8 @@ class Config:
         'export_title': "导出图表",
         'export_preview': "图表预览",
         'export_params': "导出参数",
+        'export_spec_group': "导出规格",
+        'export_output_group': "输出选项",
         'export_format': "格式",
         'export_quality': "像素倍率",
         'export_dpi': "DPI",

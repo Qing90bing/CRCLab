@@ -16,7 +16,7 @@ class ExportForm(tk.Frame):
         :param dialog: 导出对话框 ExportDialog 协调器实例。
         """
         self.bg_color = parent.cget('bg')
-        super().__init__(parent, bg=self.bg_color, padx=16, pady=16, width=Config.LAYOUT['export_side_width'])
+        super().__init__(parent, bg=self.bg_color, padx=0, pady=0, width=Config.LAYOUT['export_side_width'])
         self.dialog = dialog
         self.app = dialog.app
         self.pack_propagate(False)
@@ -27,7 +27,7 @@ class ExportForm(tk.Frame):
             text=Config.UI_TEXT['export_params'], 
             bg=self.bg_color,
             font=Config.FONTS['zh_bold']
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ).pack(anchor=tk.W, pady=(0, 8))
         
         # 2. 状态变量统一加载
         self._init_form_variables()
@@ -52,9 +52,11 @@ class ExportForm(tk.Frame):
 
     def _build_form_widgets(self):
         """ 构建表单的核心下拉组合框及自适应路径展示框 """
+        _, spec_inner = self._make_group(Config.UI_TEXT['export_spec_group'], pady=(0, 10))
+
         # 第一行：“格式” 和 “像素倍率”
-        row1_frame = tk.Frame(self, bg=self.bg_color)
-        row1_frame.pack(fill=tk.X, pady=(4, 6))
+        row1_frame = tk.Frame(spec_inner, bg=self.bg_color)
+        row1_frame.pack(fill=tk.X, pady=(0, 8))
         row1_frame.columnconfigure(0, weight=1)
         row1_frame.columnconfigure(1, weight=1)
         
@@ -68,8 +70,8 @@ class ExportForm(tk.Frame):
         self.quality_combo = self._add_combo_to_parent(col1_2, Config.UI_TEXT['export_quality'], self.quality_var, Config.EXPORT_OPTIONS['qualities'])
         
         # 第二行：“DPI” 和 “颜色”
-        row2_frame = tk.Frame(self, bg=self.bg_color)
-        row2_frame.pack(fill=tk.X, pady=(6, 6))
+        row2_frame = tk.Frame(spec_inner, bg=self.bg_color)
+        row2_frame.pack(fill=tk.X, pady=(0, 8))
         row2_frame.columnconfigure(0, weight=1)
         row2_frame.columnconfigure(1, weight=1)
         
@@ -83,13 +85,13 @@ class ExportForm(tk.Frame):
         self.color_combo = self._add_combo_to_parent(col2_2, Config.UI_TEXT['export_color'], self.color_var, Config.EXPORT_OPTIONS['colors'])
 
         self.jpg_quality_label = tk.Label(
-            self,
+            spec_inner,
             text=self._format_jpg_quality_text(),
             bg=self.bg_color,
             font=Config.FONTS['zh_normal'],
             anchor="w"
         )
-        self.jpg_quality_label.pack(fill=tk.X, pady=(6, 2))
+        self.jpg_quality_label.pack(fill=tk.X, pady=(2, 3))
 
         style = ttk.Style()
         style.configure(
@@ -99,7 +101,7 @@ class ExportForm(tk.Frame):
         )
 
         self.jpg_quality_scale = ttk.Scale(
-            self,
+            spec_inner,
             from_=10,
             to=100,
             orient=tk.HORIZONTAL,
@@ -107,7 +109,7 @@ class ExportForm(tk.Frame):
             command=self._on_jpg_quality_changed,
             style='Export.Horizontal.TScale'
         )
-        self.jpg_quality_scale.pack(fill=tk.X)
+        self.jpg_quality_scale.pack(fill=tk.X, pady=(0, 2))
         self.jpg_quality_scale.bind("<Button-1>", self._on_jpg_quality_pointer)
         self.jpg_quality_scale.bind("<B1-Motion>", self._on_jpg_quality_pointer)
         
@@ -116,30 +118,32 @@ class ExportForm(tk.Frame):
         style.configure('ExportCheck.TCheckbutton', background=self.bg_color, font=Config.FONTS['zh_normal'])
         
         self.border_check = ttk.Checkbutton(
-            self, 
+            spec_inner, 
             text=Config.UI_TEXT['export_show_border'], 
             variable=self.border_var, 
             command=self.dialog._update_preview,
             style='ExportCheck.TCheckbutton'
         )
-        self.border_check.pack(anchor=tk.W, pady=(15, 15))
+        self.border_check.pack(anchor=tk.W, pady=(8, 0))
+
+        _, output_inner = self._make_group(Config.UI_TEXT['export_output_group'], pady=(0, 10))
         
         # 导出路径及自定义选择区
-        self.dir_mode_combo = self._add_combo(Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
+        self.dir_mode_combo = self._add_combo_to_parent(output_inner, Config.UI_TEXT['export_dir'], self.dir_mode_var, Config.EXPORT_OPTIONS['dir_modes'])
   
-        self.browse_btn = ttk.Button(self, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
-        self.browse_btn.pack(fill=tk.X, pady=(5, 8))
+        self.browse_btn = ttk.Button(output_inner, text=Config.UI_TEXT['export_btn_browse'], state=tk.DISABLED, command=self._pick_export_dir)
+        self.browse_btn.pack(fill=tk.X, pady=(8, 8))
         
         # 精美的信息块 (Block) 来展示当前选定的导出路径
         self.dir_block = tk.Frame(
-            self,
+            output_inner,
             bg="#f8fafc",
             highlightthickness=1,
             highlightbackground="#cbd5e1",
             padx=10,
             pady=8
         )
-        self.dir_block.pack(fill=tk.X, pady=(0, 8))
+        self.dir_block.pack(fill=tk.X)
         
         # 只读的 Entry 小部件来承载路径显示，支持鼠标左右拖动、全选复制，且绝不折行或挤占布局
         self.dir_entry = tk.Entry(
@@ -156,12 +160,20 @@ class ExportForm(tk.Frame):
         )
         self.dir_entry.pack(fill=tk.X, expand=True)
 
+    def _make_group(self, title, pady):
+        """ 创建原生分组框及统一内边距容器。 """
+        group = ttk.LabelFrame(self, text=title)
+        group.pack(fill=tk.X, pady=pady)
+        inner = tk.Frame(group, bg=self.bg_color, padx=12, pady=10)
+        inner.pack(fill=tk.BOTH, expand=True)
+        return group, inner
+
     def _build_info_and_actions(self):
         """ 绘制导出规格预估面板，动画进度条及底层取消、确认按钮 """
         self.info_group = ttk.LabelFrame(self, text=Config.UI_TEXT['export_info_group'])
-        self.info_group.pack(fill=tk.X, pady=(15, 10))
+        self.info_group.pack(fill=tk.X, pady=(0, 10))
         
-        info_inner = tk.Frame(self.info_group, bg=self.bg_color, padx=12, pady=10)
+        info_inner = tk.Frame(self.info_group, bg=self.bg_color, padx=12, pady=9)
         info_inner.pack(fill=tk.BOTH, expand=True)
         
         # 宽、高与体积预估显示标签
@@ -179,14 +191,14 @@ class ExportForm(tk.Frame):
 
         # 进度条专属动画容器，高度固定为 18 像素，防止展开进度条时页面整体发生抖动
         self.progress_container = tk.Frame(self, bg=self.bg_color, height=18)
-        self.progress_container.pack(fill=tk.X, pady=(8, 4))
+        self.progress_container.pack(fill=tk.X, pady=(6, 4))
         self.progress_container.pack_propagate(False)
         
         self.progress = ttk.Progressbar(self.progress_container, orient=tk.HORIZONTAL, mode='indeterminate')
 
         # 确认与取消动作区域
         btn_frame = tk.Frame(self, bg=self.bg_color)
-        btn_frame.pack(fill=tk.X, pady=(10, 16))
+        btn_frame.pack(fill=tk.X, pady=(8, 12))
         
         ttk.Button(btn_frame, text=Config.UI_TEXT['btn_cancel'], command=self.dialog.dlg.destroy).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
         

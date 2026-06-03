@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 from config.constants import Config
 
@@ -15,21 +16,19 @@ class ExportPreview(tk.Frame):
         :param app: 主应用程序 CRCLabApp 实例。
         """
         bg_color = parent.cget('bg')
-        super().__init__(parent, bg=bg_color, padx=10, pady=10)
+        super().__init__(parent, bg=bg_color)
         self.app = app
         self.preview_photo = None
         
-        # 顶部面板标题
-        tk.Label(
-            self, 
-            text=Config.UI_TEXT['export_preview'], 
-            bg=bg_color,
-            font=Config.FONTS['zh_bold']
-        ).pack(anchor=tk.W, pady=(0, 8))
+        preview_group = ttk.LabelFrame(self, text=Config.UI_TEXT['export_preview'])
+        preview_group.pack(fill=tk.BOTH, expand=True)
+
+        preview_inner = tk.Frame(preview_group, bg=bg_color, padx=12, pady=10)
+        preview_inner.pack(fill=tk.BOTH, expand=True)
         
         # 核心预览 Canvas，配置浅色内嵌边框
         self.preview_canvas = tk.Canvas(
-            self, 
+            preview_inner, 
             bg=Config.COLORS['preview_canvas_bg'], 
             highlightthickness=1, 
             highlightbackground=Config.COLORS['preview_canvas_border']

@@ -9,6 +9,8 @@ from view.exporter import Exporter
 from view.export_preview import ExportPreview
 from view.export_form import ExportForm
 
+_BW_THRESHOLD_TABLE = [0 if pixel < 128 else 255 for pixel in range(256)]
+
 class ExportDialog:
     """
     导出图表配置与预览弹出对话框。
@@ -98,11 +100,11 @@ class ExportDialog:
         """ 构建导出界面的左右双栏框架 """
         # 挂载左侧自适应预览画布组件
         self.preview_panel = ExportPreview(self.dlg, self.app)
-        self.preview_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.preview_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(16, 8), pady=16)
         
         # 挂载右侧配置参数表单组件
         self.form_panel = ExportForm(self.dlg, self)
-        self.form_panel.pack(side=tk.RIGHT, fill=tk.Y)
+        self.form_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 16), pady=16)
 
     def _setup_bindings(self):
         """ 联动绑定下拉菜单、复选框变量 trace 并配置画布 Configure 自动响应 """
@@ -218,10 +220,10 @@ class ExportDialog:
             if img.mode in ("RGBA", "LA"):
                 r, g, b, a = img.split()
                 rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
-                rgb_bw = rgb_gray.point(lambda x: 0 if x < 128 else 255, 'L')
+                rgb_bw = rgb_gray.point(_BW_THRESHOLD_TABLE, 'L')
                 img = Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
             else:
-                img = img.convert("L").point(lambda x: 0 if x < 128 else 255, 'L').convert("1")
+                img = img.convert("L").point(_BW_THRESHOLD_TABLE, 'L').convert("1")
         
         # 5. 更新导出宽度、高度及文件大小的指示文本
         self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
@@ -250,8 +252,8 @@ class ExportDialog:
         
         if scale_changed:
             if fmt in ("svg", "pdf", "emf"):
-                form.width_lbl.config(text="导出宽度: （矢量）")
-                form.height_lbl.config(text="导出高度: （矢量）")
+                form.width_lbl.config(text="导出宽度:（矢量）")
+                form.height_lbl.config(text="导出高度:（矢量）")
             else:
                 w_real = int(img.width * multiplier * dpi_scale)
                 h_real = int(img.height * multiplier * dpi_scale)
@@ -298,7 +300,7 @@ class ExportDialog:
                             int(round(float(form.jpg_quality_var.get())))
                         )
                     
-                    if size_bytes > 0:
+                    if isinstance(size_bytes, (int, float)) and size_bytes > 0:
                         size_kb = size_bytes / 1024.0
                         size_text = f"{size_bytes:,} 字节 ({size_kb:.1f} KB)"
                     else:
@@ -309,8 +311,8 @@ class ExportDialog:
                         if getattr(self, '_current_calc_id', None) == calc_id:
                             form.size_lbl.config(text=f"预估大小: {size_text}")
                             if fmt in ("svg", "pdf", "emf"):
-                                form.width_lbl.config(text="导出宽度: （矢量）")
-                                form.height_lbl.config(text="导出高度: （矢量）")
+                                form.width_lbl.config(text="导出宽度:（矢量）")
+                                form.height_lbl.config(text="导出高度:（矢量）")
                             else:
                                 form.width_lbl.config(text=f"导出宽度: {w} 像素")
                                 form.height_lbl.config(text=f"导出高度: {h} 像素")
