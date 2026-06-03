@@ -189,12 +189,9 @@ class ExportForm(tk.Frame):
         # 底部按钮强对齐填充器 (弹簧弹性框架)
         tk.Frame(self, bg=self.bg_color).pack(fill=tk.BOTH, expand=True)
 
-        # 进度条专属动画容器，高度固定为 18 像素，防止展开进度条时页面整体发生抖动
-        self.progress_container = tk.Frame(self, bg=self.bg_color, height=18)
-        self.progress_container.pack(fill=tk.X, pady=(6, 4))
-        self.progress_container.pack_propagate(False)
-        
-        self.progress = ttk.Progressbar(self.progress_container, orient=tk.HORIZONTAL, mode='indeterminate')
+        # 固定的进度条，默认设置为 determinate 且进度为 0，这样空闲时不显示绿色滑块
+        self.progress = ttk.Progressbar(self, orient=tk.HORIZONTAL, mode='determinate', value=0)
+        self.progress.pack(fill=tk.X, pady=(6, 4))
 
         # 确认与取消动作区域
         btn_frame = tk.Frame(self, bg=self.bg_color)

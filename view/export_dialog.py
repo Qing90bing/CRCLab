@@ -265,6 +265,9 @@ class ExportDialog:
 
     def _debounce_size_calc(self, data, dividend, divisor, q, rows, ctx, multiplier, fmt):
         """ 采用统一防抖机制（250毫秒）联动异步线程模拟物理写入，测算百分之百精确的文件大小 """
+        if getattr(self, '_is_exporting', False):
+            return
+            
         form = self.form_panel
         calc_timer = self._calc_timer
         if calc_timer is not None:
@@ -283,6 +286,7 @@ class ExportDialog:
         calc_id = self._current_calc_id
         
         def run_precise_calc_thread():
+            self._calc_timer = None
             import threading
             
             def worker():
@@ -308,6 +312,8 @@ class ExportDialog:
                     
                     # 线程安全回调
                     def update_ui():
+                        if getattr(self, '_is_exporting', False):
+                            return
                         if getattr(self, '_current_calc_id', None) == calc_id:
                             form.size_lbl.config(text=f"预估大小: {size_text}")
                             if fmt in ("svg", "pdf", "emf"):
@@ -318,8 +324,16 @@ class ExportDialog:
                                 form.height_lbl.config(text=f"导出高度: {h} 像素")
                             
                     self.dlg.after(0, update_ui)
-                except Exception:
-                    pass
+                except Exception as ex:
+                    # 如果估算因为像素过大等物理原因抛出异常，必须及时阻断“计算中...”的状态挂起
+                    def fail_ui():
+                        if getattr(self, '_is_exporting', False):
+                            return
+                        if getattr(self, '_current_calc_id', None) == calc_id:
+                            form.size_lbl.config(text=f"预估大小: 估算失败")
+                            form.width_lbl.config(text="导出宽度: 估算失败")
+                            form.height_lbl.config(text="导出高度: 估算失败")
+                    self.dlg.after(0, fail_ui)
             
             # 以守护线程启动计算任务
             t = threading.Thread(target=worker, daemon=True)
@@ -329,17 +343,19 @@ class ExportDialog:
 
     def _on_export_success(self, out_path, export_dir):
         """ 导出成功的主线程回调，唤起打勾徽章模态提示窗 """
+        self._is_exporting = False
         form = self.form_panel
         form.progress.stop()
-        form.progress.pack_forget()
+        form.progress.config(mode='determinate', value=0)
         form.set_widgets_state(tk.NORMAL)
         SuccessDialog(self.dlg, out_path, export_dir)
 
     def _on_export_failure(self, e):
         """ 导出失败的主线程回调 """
+        self._is_exporting = False
         form = self.form_panel
         form.progress.stop()
-        form.progress.pack_forget()
+        form.progress.config(mode='determinate', value=0)
         form.set_widgets_state(tk.NORMAL)
         self._show_error_dialog(e)
 
@@ -373,8 +389,25 @@ class ExportDialog:
                 return
 
         # 2. 锁定配置表单，阻断高频重复点击，展示浮动滑动进度条
+        self._is_exporting = True
+        
+        # 仅在后台估算还未完成（处于“计算中...”或者有挂起的 timer）时，才覆写提示文案，保留已算出的有用信息
+        was_calculating = "计算中" in form.size_lbl.cget("text")
+        if getattr(self, '_calc_timer', None) is not None:
+            try:
+                self.dlg.after_cancel(self._calc_timer)
+            except Exception:
+                pass
+            self._calc_timer = None
+            was_calculating = True
+            
+        if was_calculating:
+            form.size_lbl.config(text="预估大小: 正在导出，忽略本次估算结果")
+            form.width_lbl.config(text="导出宽度: 正在导出，忽略本次估算结果")
+            form.height_lbl.config(text="导出高度: 正在导出，忽略本次估算结果")
+        
         form.set_widgets_state(tk.DISABLED)
-        form.progress.pack(fill=tk.BOTH, expand=True)
+        form.progress.config(mode='indeterminate')
         form.progress.start(10)
         
         # 3. 收集表单状态参数以供渲染计算使用
@@ -402,8 +435,8 @@ class ExportDialog:
                 # 成功回调
                 self.dlg.after(0, lambda: self._on_export_success(out_path, export_dir))
             except Exception as e:
-                # 失败回调
-                self.dlg.after(0, lambda: self._on_export_failure(e))
+                # 失败回调（关键修复：通过 err=e 建立局部默认参数，防止在异步执行时原始的局部变量 e 已被作用域销毁而引发 NameError）
+                self.dlg.after(0, lambda err=e: self._on_export_failure(err))
                 
         threading.Thread(target=async_worker, daemon=True).start()
 

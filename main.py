@@ -3,6 +3,9 @@ import tkinter as tk
 from tkinter import messagebox, colorchooser, ttk
 from PIL import Image, ImageTk, ImageDraw
 
+# 解除 PIL 最大像素限制，确保超高分辨率导出（例如 4 倍放大时）不会因为像素总数超限而抛出 DecompressionBombError
+Image.MAX_IMAGE_PIXELS = None
+
 # 导入自定义模块
 from core.engine import CRCEngine
 from config.constants import Config
