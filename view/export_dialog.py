@@ -341,14 +341,55 @@ class ExportDialog:
                 
         self._calc_timer = self.dlg.after(250, run_precise_calc_thread)
 
-    def _on_export_success(self, out_path, export_dir):
+    def _on_export_success(self, out_path, export_dir, width, height):
         """ 导出成功的主线程回调，唤起打勾徽章模态提示窗 """
         self._is_exporting = False
         form = self.form_panel
         form.progress.stop()
         form.progress.config(mode='determinate', value=0)
         form.set_widgets_state(tk.NORMAL)
-        SuccessDialog(self.dlg, out_path, export_dir)
+        
+        # 收集详细的导出数据以用于显示在成功窗口中
+        fmt = form.fmt_var.get()
+        dpi = str(form.dpi_var.get())
+        color = form.color_var.get()
+        quality = form.quality_var.get()
+        border = "是" if form.border_var.get() else "否"
+        
+        # 获取透明背景状态
+        ctx = self.app._get_render_context()
+        sheet_bg = ctx.get('sheet_bg_color', '#ffffff')
+        is_transparent = sheet_bg in ("transparent", "none")
+        if fmt.lower() in ("png", "svg") and is_transparent:
+            transparent_bg = "是"
+        else:
+            transparent_bg = "否"
+            
+        # 计算文件真实大小
+        try:
+            size_bytes = os.path.getsize(out_path)
+            if size_bytes > 0:
+                size_kb = size_bytes / 1024.0
+                size_text = f"{size_bytes:,} 字节（{size_kb:.1f} KB）"
+            else:
+                size_text = "未知"
+        except Exception:
+            size_text = "未知"
+            
+        # 组装明细数据
+        details = {
+            "格式": fmt,
+            "DPI": dpi,
+            "颜色": color,
+            "像素倍率": quality,
+            "宽度": f"{width} 像素" if width > 0 else "未知",
+            "高度": f"{height} 像素" if height > 0 else "未知",
+            "纸张边框": border,
+            "透明背景": transparent_bg,
+            "文件大小": size_text
+        }
+        
+        SuccessDialog(self.dlg, out_path, export_dir, details)
 
     def _on_export_failure(self, e):
         """ 导出失败的主线程回调 """
@@ -421,7 +462,7 @@ class ExportDialog:
         # 4. 后台物理写入
         def async_worker():
             try:
-                out_path, export_dir = Exporter.export(
+                out_path, export_dir, width, height = Exporter.export(
                     self.app,
                     fmt,
                     show_border,
@@ -433,7 +474,7 @@ class ExportDialog:
                     custom_dir
                 )
                 # 成功回调
-                self.dlg.after(0, lambda: self._on_export_success(out_path, export_dir))
+                self.dlg.after(0, lambda: self._on_export_success(out_path, export_dir, width, height))
             except Exception as e:
                 # 失败回调（关键修复：通过 err=e 建立局部默认参数，防止在异步执行时原始的局部变量 e 已被作用域销毁而引发 NameError）
                 self.dlg.after(0, lambda err=e: self._on_export_failure(err))

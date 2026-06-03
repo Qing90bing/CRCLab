@@ -190,8 +190,8 @@ class Config:
         'color_swatch_h': 30,            # 色彩拾色块物理高度
         
         # 导出成功提示弹窗的尺寸与边距参数
-        'success_dialog_w': 740,         # 导出成功弹窗宽度
-        'success_dialog_h': 300,         # 导出成功弹窗高度
+        'success_dialog_w': 480,         # 导出成功弹窗宽度
+        'success_dialog_h': 580,         # 导出成功弹窗高度
         'success_dialog_pad': 30,        # 弹窗内边距 (Padding)
         'success_icon_size': 64,         # 成功圆勾徽章的物理大小
         

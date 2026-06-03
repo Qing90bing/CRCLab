@@ -43,7 +43,30 @@ class Exporter:
             app, out_path, show_border, color_mode,
             multiplier=multiplier, dpi_val=dpi_val, jpg_quality=jpg_quality
         )
-        return out_path, export_dir
+        
+        # 获取导出的物理像素尺寸
+        width, height = 0, 0
+        if fmt.lower() in ("png", "jpg", "jpeg"):
+            try:
+                from PIL import Image
+                with Image.open(out_path) as img:
+                    width, height = img.size
+            except Exception:
+                pass
+        else:
+            try:
+                data = app.data_var.get().strip()
+                divisor = app.divisor_var.get().strip()
+                q, rows, dividend = app.engine.calculate(data, divisor)
+                ctx = app._get_render_context()
+                _, width, height = exporter_cls.estimate_size(
+                    app, data, dividend, divisor, q, rows, ctx, color_mode, show_border,
+                    fmt=fmt
+                )
+            except Exception:
+                pass
+                
+        return out_path, export_dir, width, height
 
     @staticmethod
     def estimate_vector_size(app, fmt, data, dividend, divisor, q, rows, ctx, color_mode, show_border):
