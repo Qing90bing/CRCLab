@@ -216,7 +216,7 @@ class ExportForm(tk.Frame):
         label_widget.pack(anchor=tk.W, pady=(6, 2))
         
         combo = ttk.Combobox(self, textvariable=var, values=values, state="readonly")
-        combo.label_widget = label_widget
+        setattr(combo, "label_widget", label_widget)
         combo.pack(fill=tk.X)
         return combo
 
@@ -231,7 +231,7 @@ class ExportForm(tk.Frame):
         label_widget.pack(anchor=tk.W, pady=(2, 2))
         
         combo = ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
-        combo.label_widget = label_widget
+        setattr(combo, "label_widget", label_widget)
         combo.pack(fill=tk.X, expand=True)
         return combo
 
@@ -264,8 +264,8 @@ class ExportForm(tk.Frame):
         low = float(self.jpg_quality_scale.cget("from"))
         high = float(self.jpg_quality_scale.cget("to"))
         try:
-            start_coords = self.jpg_quality_scale.tk.call(self.jpg_quality_scale._w, "coords", low)
-            end_coords = self.jpg_quality_scale.tk.call(self.jpg_quality_scale._w, "coords", high)
+            start_coords = self.jpg_quality_scale.tk.call(str(self.jpg_quality_scale), "coords", low)
+            end_coords = self.jpg_quality_scale.tk.call(str(self.jpg_quality_scale), "coords", high)
             if isinstance(start_coords, str):
                 start_coords = self.jpg_quality_scale.tk.splitlist(start_coords)
             if isinstance(end_coords, str):

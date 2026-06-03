@@ -172,8 +172,10 @@ class EMFInterceptDraw:
         font_h = max(1, int((font.size if font else 22) / self.sf))
         
         is_bold = False
-        if hasattr(font, 'path') and isinstance(font.path, str) and 'bd' in font.path.lower():
-            is_bold = True
+        if font is not None:
+            font_path = getattr(font, 'path', None)
+            if isinstance(font_path, str) and 'bd' in font_path.lower():
+                is_bold = True
         weight = 700 if is_bold else Config.GDI['fw_normal']
         
         gdi_font = self.gdi.CreateFontW(

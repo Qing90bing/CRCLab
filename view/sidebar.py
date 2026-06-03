@@ -241,11 +241,11 @@ class SidebarPanel(tk.Frame):
         logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "app_icon2.png")
         try:
             img = Image.open(logo_path)
-            resample_filter = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.ANTIALIAS
-            img.thumbnail((300, 90), resample_filter)
+            resample_filter = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else getattr(Image, 'ANTIALIAS', 1)
+            img.thumbnail((300, 90), resample_filter)  # type: ignore
             photo = ImageTk.PhotoImage(img)
             logo_lbl = tk.Label(header_frame, image=photo, bg=Config.COLORS['main_bg'])
-            logo_lbl.image = photo
+            setattr(logo_lbl, 'image', photo)
             logo_lbl.pack(side=tk.LEFT, padx=(0, 20))
         except Exception:
             tk.Label(header_frame, text="CRCLab", font=("Times New Roman", 24, "bold"), 

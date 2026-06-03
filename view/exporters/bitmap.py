@@ -73,6 +73,7 @@ class BitmapExporter(BaseExporter):
         针对 Pillow 图像应用指定的色彩变调和滤镜效果，输出匹配颜色模式的画布。
         """
         save_fmt = save_fmt.upper()
+        bw_lut = [0 if i < 128 else 255 for i in range(256)]
         
         # 1. 针对不支持透明通道的 JPEG，在执行转换前若图像包含透明通道，应该先用白色底色合并
         if save_fmt == "JPEG":
@@ -84,7 +85,7 @@ class BitmapExporter(BaseExporter):
             if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
                 return img.convert("L")
             elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
-                return img.convert("L").point(lambda x: 0 if x < 128 else 255, 'L').convert("1")
+                return img.convert("L").point(bw_lut, 'L').convert("1")
             else:
                 return img.convert("RGB")
                 
@@ -102,9 +103,9 @@ class BitmapExporter(BaseExporter):
             if img.mode in ("RGBA", "LA"):
                 r, g, b, a = img.split()
                 rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
-                rgb_bw = rgb_gray.point(lambda x: 0 if x < 128 else 255, 'L')
+                rgb_bw = rgb_gray.point(bw_lut, 'L')
                 return Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
-            return img.convert("L").point(lambda x: 0 if x < 128 else 255, 'L').convert("1")
+            return img.convert("L").point(bw_lut, 'L').convert("1")
             
         # 3. PNG 彩色模式保留完整的 RGBA，支持真正的透明背景
         return img
