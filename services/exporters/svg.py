@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw
 from config.constants import Config
-from view.exporters.base import BaseExporter
+from services.exporters.base import BaseExporter
 
 class SVGInterceptDraw:
     """

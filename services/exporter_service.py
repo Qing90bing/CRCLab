@@ -1,6 +1,6 @@
 import os
 from config.constants import Config
-from view.exporters import EXPORTERS
+from services.exporters import EXPORTERS
 
 class Exporter:
     """

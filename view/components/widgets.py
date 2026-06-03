@@ -1,6 +1,35 @@
 import tkinter as tk
 from tkinter import ttk
+from typing import Literal
 from config.constants import Config
+
+Justify = Literal["left", "center", "right"]
+
+class ReadonlyEntry(tk.Entry):
+    """
+    自定义扁平且只读的文本框。
+    外观与常规 Label 无异，但支持用户手动选定、双击或拖拽进行 Ctrl+C 复制。
+    """
+    def __init__(self, parent, text_val, font, fg, bg, width=24, justify: Justify = "right"):
+        super().__init__(
+            parent, 
+            relief="flat", 
+            state="normal", 
+            font=font, 
+            fg=fg, 
+            bg=bg, 
+            width=width, 
+            highlightthickness=0,
+            justify=justify
+        )
+        self.insert(0, text_val)
+        self.config(state="readonly")
+        
+    def set_value(self, val):
+        self.config(state="normal")
+        self.delete(0, tk.END)
+        self.insert(0, val)
+        self.config(state="readonly")
 
 class ModernCheckbutton(tk.Frame):
     """

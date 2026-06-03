@@ -150,16 +150,10 @@ class Config:
         'input_pady': 20,        # 输入区域垂直内边距
         'check_size': 20,        # 自定义复选框的尺寸
         'check_color': "#3b82f6",# 复选框激活时的蓝色调
-        'entry_pady': 15,        # 输入框组件之间的外部间距
-        'entry_ipady': 8,        # 输入框内部垂直厚度 (Internal Padding)
-        'section_pady': 25,      # 各个逻辑功能区之间的垂直间距
         'canvas_bg': "#1e293b",  # 画布容器的背景（暗色调）
-        'toolbar_bg': "#ffffff", # 工具栏背景
         'export_dialog_w_ratio': 0.75,   # 导出对话框对物理屏幕宽度的占比
         'export_dialog_h_ratio': 0.75,   # 导出对话框对物理屏幕高度的占比
         'export_side_width': 540,        # 导出侧边控制栏宽度
-        'export_preview_bg': "SystemButtonFace",  # 导出预览区背景底色
-        'export_ctrl_bg': "SystemButtonFace",     # 导出参数控制区背景底色
         
         # 物理主窗口几何比例常数
         'window_w_ratio': 0.95,          # 启动窗口对屏幕宽度的占比
@@ -180,8 +174,7 @@ class Config:
         'export_min_h': 600,             # 导出对话框最小物理高度
         
         # SSAA 抗锯齿物理渲染控制参数
-        'temp_canvas_base': 2500,        # SSAA 公式临时高分画布基准大小
-        'draw_origin_offset': 600.0,     # SSAA 渲染的原点安全偏置
+        # SSAA 抗锯齿物理渲染控制参数
         'ssaa_factor': 2,                # SSAA 抗锯齿超采样因子
         'curve_segments': 200,            # 贝塞尔曲线分段数（提高采样数以减少矢量曲线导出时的锯齿感）
         
@@ -190,10 +183,16 @@ class Config:
         'color_swatch_h': 30,            # 色彩拾色块物理高度
         
         # 导出成功提示弹窗的尺寸与边距参数
-        'success_dialog_w': 480,         # 导出成功弹窗宽度
-        'success_dialog_h': 580,         # 导出成功弹窗高度
+        'success_dialog_min_w': 640,     # 导出成功弹窗最小宽度
+        'success_dialog_h_offset': 15,   # 导出成功弹窗高度底部偏置
         'success_dialog_pad': 30,        # 弹窗内边距 (Padding)
         'success_icon_size': 64,         # 成功圆勾徽章的物理大小
+        
+        # 关于软件对话框参数
+        'about_dialog_w': 580,           # 关于软件弹窗最小宽度
+        'about_dialog_h': 500,           # 关于软件弹窗最小高度
+        'about_logo_w': 300,             # 关于软件弹窗 Logo 宽度
+        'about_logo_h': 90,              # 关于软件弹窗 Logo 高度
         
         # 主窗口浮动工具栏及画布交互控制参数
         'toolbar_y_offset': 35,          # 浮动工具栏的 y 轴偏移量
@@ -209,8 +208,6 @@ class Config:
         # 解析看板布局参数
         'dashboard_height': 220,         # 看板整体高度
         'card_gap': 12,                  # 卡片之间的间隔
-        'card_padding_x': 16,            # 卡片水平内边距
-        'card_padding_y': 16,            # 卡片垂直内边距
     }
 
     # 默认业务参数配置表：程序启动时的初始状态

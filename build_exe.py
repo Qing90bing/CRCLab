@@ -31,6 +31,7 @@ def run_build():
     # 检查静态资源是否存在
     icon_ico = os.path.join("resources", "app_icon.ico")
     icon_png = os.path.join("resources", "app_icon.png")
+    icon_png2 = os.path.join("resources", "app_icon2.png")
     
     extra_args = []
     if os.path.exists(icon_ico):
@@ -38,6 +39,8 @@ def run_build():
         extra_args.append(f"--include-data-files={icon_ico}={icon_ico}")
     if os.path.exists(icon_png):
         extra_args.append(f"--include-data-files={icon_png}={icon_png}")
+    if os.path.exists(icon_png2):
+        extra_args.append(f"--include-data-files={icon_png2}={icon_png2}")
         
     # 定义编译所用的主要参数
     nuitka_args = [

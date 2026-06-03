@@ -4,10 +4,10 @@ import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 from PIL import Image, ImageTk
 from config.constants import Config
-from view.success_dialog import SuccessDialog
-from view.exporter import Exporter
-from view.export_preview import ExportPreview
-from view.export_form import ExportForm
+from view.dialogs.success_dialog import SuccessDialog
+from services.exporter_service import Exporter
+from view.dialogs.export_preview import ExportPreview
+from view.dialogs.export_form import ExportForm
 
 _BW_THRESHOLD_TABLE = [0 if pixel < 128 else 255 for pixel in range(256)]
 
@@ -27,6 +27,7 @@ class ExportDialog:
         self._calc_timer = None
         self._last_scale_params = (None, None, None)
         self.dlg = tk.Toplevel(app.root)
+        self.dlg.withdraw()
         self.dlg.configure(bg=Config.COLORS['main_bg'])
         self.dlg.title(Config.UI_TEXT['export_title'])
         self.dlg.transient(app.root)
@@ -56,6 +57,7 @@ class ExportDialog:
         
         # 4. 首次同步与延迟定位居中
         self._update_preview()
+        self.dlg.deiconify()
         self.dlg.after(100, self._update_preview)
 
     def _setup_geometry(self):

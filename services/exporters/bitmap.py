@@ -1,7 +1,7 @@
 import io
 from PIL import Image
 from config.constants import Config
-from view.exporters.base import BaseExporter
+from services.exporters.base import BaseExporter
 
 class BitmapExporter(BaseExporter):
     """

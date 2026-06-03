@@ -14,6 +14,7 @@ class SuccessDialog:
         初始化对话框并配置模态交互。
         """
         self.dlg = tk.Toplevel(parent)
+        self.dlg.withdraw()
         self.dlg.title("导出成功")
         self.dlg.transient(parent)
         
@@ -51,13 +52,14 @@ class SuccessDialog:
         h = self.dlg.winfo_reqheight()
         
         # 设置更舒展的宽度最小值，并为高度提供舒适的下边界留白
-        w = max(640, w)
-        h = h + 15
+        w = max(Config.LAYOUT['success_dialog_min_w'], w)
+        h = h + Config.LAYOUT['success_dialog_h_offset']
         
         sw, sh = parent.winfo_screenwidth(), parent.winfo_screenheight()
         
         self.dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         self.dlg.resizable(False, False)
+        self.dlg.deiconify()
 
     def _build_layout(self):
         """ 构建各区域容器与小部件 """
@@ -85,14 +87,18 @@ class SuccessDialog:
         header_frame.pack(fill=tk.X, pady=(0, 15))
         
         # 1. 左侧 Canvas 绘制 64x64 的打勾圆形徽章
-        icon_cv = tk.Canvas(header_frame, width=64, height=64, bg="#ffffff", highlightthickness=0)
+        size = Config.LAYOUT['success_icon_size']
+        icon_cv = tk.Canvas(header_frame, width=size, height=size, bg="#ffffff", highlightthickness=0)
         icon_cv.pack(side=tk.LEFT, anchor="center", padx=(0, 16))
         
-        # 绘制绿底（在 64x64 容器中居中绘制直径为 56 的圆）
-        icon_cv.create_oval(4, 4, 60, 60, fill="#10b981", outline="")
-        # 绘制白色打勾（端点圆润，线宽为 3，在圆心中央对齐）
-        icon_cv.create_line(20, 32, 29, 41, fill="white", width=3, capstyle=tk.ROUND)
-        icon_cv.create_line(29, 41, 45, 25, fill="white", width=3, capstyle=tk.ROUND)
+        # 绘制绿底
+        padding = 4
+        icon_cv.create_oval(padding, padding, size - padding, size - padding, fill="#10b981", outline="")
+        
+        # 绘制白色打勾
+        w_line = max(2, int(size * 3 / 64))
+        icon_cv.create_line(int(size*20/64), int(size*32/64), int(size*29/64), int(size*41/64), fill="white", width=w_line, capstyle=tk.ROUND)
+        icon_cv.create_line(int(size*29/64), int(size*41/64), int(size*45/64), int(size*25/64), fill="white", width=w_line, capstyle=tk.ROUND)
         
         # 2. 右侧容器 Frame
         txt_frame = tk.Frame(header_frame, bg="#ffffff")
