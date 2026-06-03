@@ -26,7 +26,20 @@ class ExportDialog:
         self.dlg = tk.Toplevel(app.root)
         self.dlg.title(Config.UI_TEXT['export_title'])
         self.dlg.transient(app.root)
-        self.dlg.grab_set()  # 设置模态对话框，防范多窗体并发
+        
+        # 禁用父窗口以实现模态，并避免 grab_set() 导致任务栏最小化失效问题
+        try:
+            app.root.attributes("-disabled", True)
+        except Exception:
+            pass
+            
+        def restore_parent(event):
+            if event.widget == self.dlg:
+                try:
+                    app.root.attributes("-disabled", False)
+                except Exception:
+                    pass
+        self.dlg.bind("<Destroy>", restore_parent)
         
         # 1. 窗口几何位置自适应
         self._setup_geometry()

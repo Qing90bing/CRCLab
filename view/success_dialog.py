@@ -16,7 +16,20 @@ class SuccessDialog:
         self.dlg = tk.Toplevel(parent)
         self.dlg.title("导出成功")
         self.dlg.transient(parent)
-        self.dlg.grab_set()
+        
+        # 禁用父窗口以实现模态，并避免 grab_set() 导致任务栏最小化失效问题
+        try:
+            parent.attributes("-disabled", True)
+        except Exception:
+            pass
+            
+        def restore_parent(event):
+            if event.widget == self.dlg:
+                try:
+                    parent.attributes("-disabled", False)
+                except Exception:
+                    pass
+        self.dlg.bind("<Destroy>", restore_parent)
         
         self.dlg.configure(bg=Config.COLORS['main_bg'])
         self.out_path = out_path
