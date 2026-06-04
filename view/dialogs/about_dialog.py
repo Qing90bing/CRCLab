@@ -139,21 +139,20 @@ class AboutDialog:
         libs_row.grid_columnconfigure(0, weight=1)
         libs_row.grid_columnconfigure(1, weight=1)
         libs_row.grid_columnconfigure(2, weight=1)
-        libs_row.grid_columnconfigure(3, weight=1)
         
         libs = [
-            ("Pillow", "https://github.com/python-pillow/Pillow", 0, tk.W),
-            ("svglib", "https://github.com/deeplook/svglib", 1, None),
-            ("reportlab", "https://pypi.org/project/reportlab/", 2, None),
-            ("Nuitka", "https://nuitka.net/", 3, tk.E)
+            ("Pillow", "https://github.com/python-pillow/Pillow", 0, 0, tk.W),
+            ("svglib", "https://github.com/deeplook/svglib", 0, 1, None),
+            ("reportlab", "https://pypi.org/project/reportlab/", 0, 2, tk.E),
+            ("Nuitka", "https://nuitka.net/", 1, 0, tk.W)
         ]
         
-        for name, url, col, sticky in libs:
+        for name, url, row, col, sticky in libs:
             lbl = tk.Label(libs_row, text=name, font=link_font, fg=Config.COLORS['primary'], bg=Config.COLORS['main_bg'], cursor="hand2")
             if sticky:
-                lbl.grid(row=0, column=col, sticky=sticky)
+                lbl.grid(row=row, column=col, sticky=sticky, pady=(0, 5) if row == 0 else 0)
             else:
-                lbl.grid(row=0, column=col)
+                lbl.grid(row=row, column=col, pady=(0, 5) if row == 0 else 0)
             lbl.bind("<Button-1>", lambda e, u=url: webbrowser.open_new(u))
 
     def _create_about_footer(self, parent, dlg):
