@@ -162,8 +162,8 @@ class Config:
         'window_h_ratio': 0.95,          # 启动窗口对屏幕高度的占比
         'window_max_w': 1920,            # 启动窗口最大物理宽度
         'window_max_h': 1080,            # 启动窗口最大物理高度
-        'window_min_w': 1200,            # 最小宽度限制
-        'window_min_h': 800,             # 最小高度限制
+        'window_min_w': 900,             # 最小宽度限制 (兼顾老电脑 1366x768 屏幕)
+        'window_min_h': 600,             # 最小高度限制 (兼顾老电脑 1366x768 屏幕)
         'side_scroll_offset': 25,        # 侧边栏滚动条补偿宽度偏移
         'side_divider_width': 200,       # 侧边栏分割线几何宽度
         'zoom_in_factor': 1.1,           # 物理放大步长因子
