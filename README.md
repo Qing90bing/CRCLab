@@ -1,7 +1,9 @@
 # CRCLab (CRC 循环冗余校验计算与可视化工具)
 
 ## 1. 软件概述
-`CRCLab` 是一款基于 Python 与 Tkinter 开发的 CRC（循环冗余校验）长除法计算与可视化辅助工具。本程序支持常用的标准生成多项式（如 CRC-4、CRC-8、CRC-16、CRC-32）以及自定义多项式的模二除法演算，并以图形化形式（包含余数长除式及关联圆弧图）展示计算过程，方便学习与协议分析。
+`CRCLab` (当前版本: v1.1.0) 是一款基于 Python 与 Tkinter 开发的 CRC（循环冗余校验）长除法计算与可视化辅助工具。本程序支持常用的标准生成多项式（如 CRC-4、CRC-8、CRC-16、CRC-32）以及自定义多项式的模二除法演算，并以图形化形式（包含余数长除式及关联圆弧图）展示计算过程，方便学习与协议分析。
+
+在最新版本中，系统引入了多项体验与工程结构优化，包括原生的 Windows 高分屏 (High-DPI) 适配、非阻塞式 UI 交互（如异步背景加载动画）、防覆盖的自定义导出文件命名机制，以及更稳健的界面布局架构。
 
 系统支持将生成的图表导出为 `PNG`、`JPG`、`SVG`、`PDF` 以及 Windows 原生的 `EMF` 矢量图元格式，便于在文档、报告中进行排版和配图。
 
@@ -95,28 +97,30 @@ CRCLab/
 ├── core/                # 算法运算核心模块
 │   └── engine.py        # 二进制模二除法核心计算引擎
 ├── view/                # 界面展现与绘制控制层
+│   ├── main_window.py   # 主窗口容器与核心业务流转
 │   ├── renderer.py      # Pillow 内存矢量化图解高清重绘器
 │   ├── sidebar.py       # GUI 参数控制及排版布局侧边栏面板
 │   ├── dashboard.py     # 实时运算分析及校验解析看板
-│   ├── widgets.py       # 通用高阶定制 GUI 交互组件库 (包含滑块、拾色器等)
+│   ├── widgets.py       # 通用定制 GUI 交互组件库 (包含滑块、分组框等)
 │   ├── export_dialog.py # 高精度导出参数配置与交互对话框 (弹窗外壳)
 │   ├── export_form.py   # 导出参数控制及表单交互面板 (弹窗左侧栏)
 │   ├── export_preview.py# 导出纸张效果动态实时预览画布 (弹窗右侧栏)
-│   ├── exporter.py      # 高阶导出外观协调外观类 (Facade) 与分发管理中心
-│   ├── success_dialog.py# 导出成功路径回显与气泡式交互弹窗
+│   ├── exporter.py      # 高阶导出协调外观类 (Facade) 与分发管理中心
+│   ├── success_dialog.py# 导出成功后包含文件详情的回显式交互弹窗
 │   └── exporters/       # 插件化多格式导出底层适配扩展包
 │       ├── __init__.py  # 导出器注册与模块暴露接口
 │       ├── base.py      # 物理导出插件基础抽象类
 │       ├── bitmap.py    # 位图格式 (PNG, JPG) 高分辨率渲染与大小评估插件
-│       ├── svg.py       # SVG 高清晰矢量标记渲染网关插件
-│       ├── pdf.py       # SVG-to-ReportLab PDF 物理写盘与矢量粗估插件
+│       ├── svg.py       # SVG 矢量标记渲染网关插件
+│       ├── pdf.py       # SVG-to-ReportLab PDF 物理写盘插件
 │       └── emf.py       # 基于 Windows GDI32 底层原生的 EMF 矢量图元插件
 ├── config/              # 常量与全局静态设置中心
-│   └── constants.py     # 静态色彩、预设多项式、字体降级回退及布局参数定义
+│   └── constants.py     # 静态色彩、多项式、字体及布局参数统一配置
 ├── resources/           # 静态资源与图片文件夹
 │   ├── app_icon.ico     # 应用程序系统图标
 │   ├── app_icon.png     # 高清晰图片资源
 │   └── app_icon2.png    # 备用高清晰大图资源
+├── main.py              # 应用程序入口与系统级 DPI 适配引导模块
 ├── build_exe.py         # Nuitka 自动化一键打包编译脚本
 └── README.md            # 项目使用与部署说明文档 (本文档)
 ```
@@ -151,6 +155,10 @@ CRCLab/
   # 强制使用虚拟环境下的解释器执行编译
   .\.venv\Scripts\python.exe build_exe.py
   ```
+
+### 6.5 高分屏 (High-DPI) 适配与缩放问题
+- **技术问题**：在 Windows 系统上，若多显示器缩放比例不一致（如一台 100%，一台 150%），Tkinter 默认会采用系统层面的位图缩放，导致文字模糊和界面严重失真。
+- **架构设计**：`main.py` 入口文件使用 `ctypes.windll.shcore.SetProcessDpiAwareness(2)` 向上声明了 `Per Monitor DPI Aware` 支持。此设计将控制权交由操作系统和 Tkinter 原生引擎协同处理，避免了与操作系统的兼容性设置发生“双重放大”冲突，确保了跨不同分辨率下的界面清晰度和物理尺寸一致性。
 
 ---
 
