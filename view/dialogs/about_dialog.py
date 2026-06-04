@@ -139,11 +139,13 @@ class AboutDialog:
         libs_row.grid_columnconfigure(0, weight=1)
         libs_row.grid_columnconfigure(1, weight=1)
         libs_row.grid_columnconfigure(2, weight=1)
+        libs_row.grid_columnconfigure(3, weight=1)
         
         libs = [
             ("Pillow", "https://github.com/python-pillow/Pillow", 0, tk.W),
             ("svglib", "https://github.com/deeplook/svglib", 1, None),
-            ("reportlab", "https://pypi.org/project/reportlab/", 2, tk.E)
+            ("reportlab", "https://pypi.org/project/reportlab/", 2, None),
+            ("Nuitka", "https://nuitka.net/", 3, tk.E)
         ]
         
         for name, url, col, sticky in libs:
