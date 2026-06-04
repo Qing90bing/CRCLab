@@ -161,10 +161,6 @@ CRCLab/
   .\.venv\Scripts\python.exe build_exe.py
   ```
 
-### 6.5 高分屏 (High-DPI) 适配与缩放问题
-- **技术问题**：在 Windows 系统上，若多显示器缩放比例不一致（如一台 100%，一台 150%），Tkinter 默认会采用系统层面的位图缩放，导致文字模糊和界面严重失真。
-- **架构设计**：`main.py` 入口文件使用 `ctypes.windll.shcore.SetProcessDpiAwareness(2)` 向上声明了 `Per Monitor DPI Aware` 支持。此设计将控制权交由操作系统和 Tkinter 原生引擎协同处理，避免了与操作系统的兼容性设置发生“双重放大”冲突，确保了跨不同分辨率下的界面清晰度和物理尺寸一致性。
-
 ---
 
 ## 7. 技术支持与开发声明
