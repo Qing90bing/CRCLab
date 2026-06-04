@@ -210,56 +210,81 @@ class ExportDialog:
     def _update_preview(self):
         """
         实时预览核心重绘驱动方法。
-        根据当前的配置参数，在内存中渲染图解并等比缩放贴至预览画布中。
+        根据当前的配置参数，在后台线程渲染图解并等比缩放贴至预览画布中。
         """
         form = self.form_panel
-        self.preview_panel.clear()
         
         data = self.app.data_var.get().strip()
         divisor = self.app.divisor_var.get().strip()
         if not data or not divisor:
+            self.preview_panel.clear()
+            self.preview_panel.stop_loading()
             return
             
-        # 1. 运行 CRC 引擎重新计算步骤
-        q, rows, dividend = self.app.engine.calculate(data, divisor)
+        self.preview_panel.start_loading()
         
-        # 2. 获取当前的上下文环境，固定预览 view_scale 为 1.0 并覆盖参数
+        # 提前在主线程获取UI相关数据
         ctx = self.app._get_render_context()
         ctx['view_scale'] = 1.0
         ctx['show_border'] = form.border_var.get()
         ctx['is_preview'] = True
         
-        # 3. 物理重绘生成基础 Pillow RGBA 图像
-        img = self.app.renderer.render(data, dividend, divisor, q, rows, ctx)
+        color_mode = form.color_var.get()
+        color_opts = Config.EXPORT_OPTIONS['colors']
         
-        # 4. 根据当前选定的颜色模式执行像素灰度/黑白转换，同时无损维持透明通道
-        color_opt = Config.EXPORT_OPTIONS['colors']
-        if form.color_var.get() == color_opt[1]:
-            # 灰度转换
-            if img.mode in ("RGBA", "LA"):
-                r, g, b, a = img.split()
-                rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
-                img = Image.merge("RGBA", (rgb_gray, rgb_gray, rgb_gray, a))
-            else:
-                img = img.convert("L")
-        elif form.color_var.get() == color_opt[2]:
-            # 二值黑白转换（采用纯阈值过滤，避免 Floyd-Steinberg 抖动产生的杂点）
-            if img.mode in ("RGBA", "LA"):
-                r, g, b, a = img.split()
-                rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
-                rgb_bw = rgb_gray.point(_BW_THRESHOLD_TABLE, 'L')
-                img = Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
-            else:
-                img = img.convert("L").point(_BW_THRESHOLD_TABLE, 'L').convert("1")
+        if not hasattr(self, '_current_preview_id'):
+            self._current_preview_id = 0
+        self._current_preview_id = (self._current_preview_id + 1) % 10000
+        preview_id = self._current_preview_id
         
-        # 保存最后的原始高分辨率渲染图以便后续纯拖拽窗口时进行零成本快速重缩放
-        self._last_rendered_img = img
+        import threading
         
-        # 5. 更新导出宽度、高度及文件大小的指示文本
-        self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
-        
-        # 6. 将生成的图像渲染到画布上
-        self.preview_panel.render_preview(img)
+        def worker():
+            try:
+                # 1. 运行 CRC 引擎重新计算步骤
+                q, rows, dividend = self.app.engine.calculate(data, divisor)
+                
+                # 2. 物理重绘生成基础 Pillow RGBA 图像
+                img = self.app.renderer.render(data, dividend, divisor, q, rows, ctx)
+                
+                # 3. 根据当前选定的颜色模式执行像素灰度/黑白转换
+                if color_mode == color_opts[1]:
+                    if img.mode in ("RGBA", "LA"):
+                        r, g, b, a = img.split()
+                        rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
+                        img = Image.merge("RGBA", (rgb_gray, rgb_gray, rgb_gray, a))
+                    else:
+                        img = img.convert("L")
+                elif color_mode == color_opts[2]:
+                    if img.mode in ("RGBA", "LA"):
+                        r, g, b, a = img.split()
+                        rgb_gray = Image.merge("RGB", (r, g, b)).convert("L")
+                        rgb_bw = rgb_gray.point(_BW_THRESHOLD_TABLE, 'L')
+                        img = Image.merge("RGBA", (rgb_bw, rgb_bw, rgb_bw, a))
+                    else:
+                        img = img.convert("L").point(_BW_THRESHOLD_TABLE, 'L').convert("1")
+                
+                # 4. 线程安全更新 UI
+                def update_ui():
+                    if getattr(self, '_is_exporting', False):
+                        self.preview_panel.stop_loading()
+                        return
+                    if getattr(self, '_current_preview_id', None) == preview_id:
+                        self.preview_panel.clear()
+                        self._last_rendered_img = img
+                        # 更新参数并发起精确大小估算 (将接管 loading 的停止)
+                        self._update_export_info(img, data, dividend, divisor, q, rows, ctx)
+                        self.preview_panel.render_preview(img)
+                self.dlg.after(0, update_ui)
+                
+            except Exception as e:
+                def fail_ui():
+                    if getattr(self, '_current_preview_id', None) == preview_id:
+                        self.preview_panel.clear()
+                        self.preview_panel.stop_loading()
+                self.dlg.after(0, fail_ui)
+                
+        threading.Thread(target=worker, daemon=True).start()
 
     def _update_export_info(self, img, data, dividend, divisor, q, rows, ctx):
         """ 联动更新右侧表单中的长宽估算指标，并防抖触发大小精密测算 """
@@ -296,6 +321,7 @@ class ExportDialog:
     def _debounce_size_calc(self, data, dividend, divisor, q, rows, ctx, multiplier, fmt):
         """ 采用统一防抖机制（250毫秒）联动异步线程模拟物理写入，测算百分之百精确的文件大小 """
         if getattr(self, '_is_exporting', False):
+            self.preview_panel.stop_loading()
             return
             
         form = self.form_panel
@@ -308,6 +334,7 @@ class ExportDialog:
             self._calc_timer = None
                 
         form.size_lbl.config(text="预估大小： 计算中...")
+        self.preview_panel.start_loading()
         
         # 生成递增自增的计算版本标识符，防止前一次慢计算返回后脏写覆盖新版界面显示
         if not hasattr(self, '_current_calc_id'):
@@ -343,6 +370,7 @@ class ExportDialog:
                     # 线程安全回调
                     def update_ui():
                         if getattr(self, '_is_exporting', False):
+                            self.preview_panel.stop_loading()
                             return
                         if getattr(self, '_current_calc_id', None) == calc_id:
                             form.size_lbl.config(text=f"预估大小： {size_text}")
@@ -352,17 +380,20 @@ class ExportDialog:
                             else:
                                 form.width_lbl.config(text=f"导出宽度： {w} 像素")
                                 form.height_lbl.config(text=f"导出高度： {h} 像素")
+                            self.preview_panel.stop_loading()
                             
                     self.dlg.after(0, update_ui)
                 except Exception as ex:
                     # 如果估算因为像素过大等物理原因抛出异常，必须及时阻断“计算中...”的状态挂起
                     def fail_ui():
                         if getattr(self, '_is_exporting', False):
+                            self.preview_panel.stop_loading()
                             return
                         if getattr(self, '_current_calc_id', None) == calc_id:
                             form.size_lbl.config(text=f"预估大小： 估算失败")
                             form.width_lbl.config(text="导出宽度： 估算失败")
                             form.height_lbl.config(text="导出高度： 估算失败")
+                            self.preview_panel.stop_loading()
                     self.dlg.after(0, fail_ui)
             
             # 以守护线程启动计算任务
@@ -477,6 +508,7 @@ class ExportDialog:
 
         # 2. 锁定配置表单，阻断高频重复点击，展示浮动滑动进度条
         self._is_exporting = True
+        self.preview_panel.stop_loading()
         
         # 仅在后台估算还未完成（处于“计算中...”或者有挂起的 timer）时，才覆写提示文案，保留已算出的有用信息
         was_calculating = "计算中" in form.size_lbl.cget("text")

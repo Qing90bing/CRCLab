@@ -50,7 +50,8 @@ class ExportPreview(tk.Frame):
                 th = max(1, int(img.height * fit_scale))
                 img = img.resize((tw, th), Image.Resampling.LANCZOS)
         
-        self.preview_canvas.delete("all")
+        self.preview_canvas.delete("canvas_bg")
+        self.preview_canvas.delete("formula")
         
         # 将预览放置在画布的绝对物理中心
         cx, cy = cw / 2, ch / 2
@@ -90,4 +91,58 @@ class ExportPreview(tk.Frame):
 
     def clear(self):
         """ 清空画布内所有绘制图元 """
-        self.preview_canvas.delete("all")
+        self.preview_canvas.delete("canvas_bg")
+        self.preview_canvas.delete("formula")
+
+    def start_loading(self):
+        """ 开始在右上角显示顺时针旋转的加载动画 """
+        if hasattr(self, '_loading_timer') and self._loading_timer:
+            return
+        self._loading_angle = 0
+        self._animate_loading()
+
+    def stop_loading(self):
+        """ 停止加载动画 """
+        if hasattr(self, '_loading_timer') and self._loading_timer:
+            self.after_cancel(self._loading_timer)
+            self._loading_timer = None
+        self.preview_canvas.delete("loading_anim")
+        self.preview_canvas.delete("loading_track")
+
+    def _animate_loading(self):
+        """ 加载动画帧循环 """
+        self.preview_canvas.delete("loading_anim")
+        self.preview_canvas.delete("loading_track")
+        
+        cw = self.preview_canvas.winfo_width()
+        
+        # 如果画布太小还没完全初始化，稍后再试
+        if cw > 40:
+            # 扩大尺寸到 36x36
+            size = 36
+            # 绘制在右上角，留出一定边距
+            px, py = cw - size - 16, 16
+            bbox = (px, py, px + size, py + size)
+            
+            # 底部的圆形管道轨道 (使用比较浅的颜色)
+            self.preview_canvas.create_oval(
+                *bbox,
+                outline=Config.COLORS.get('divider', '#e5e7eb'),
+                width=4,
+                tags="loading_track"
+            )
+            
+            # 顺时针旋转，需要减少 angle
+            self.preview_canvas.create_arc(
+                *bbox,
+                start=self._loading_angle,
+                extent=100,  # 让旋转部分缩短，像在管道里跑
+                style=tk.ARC,
+                outline=Config.COLORS['primary'],
+                width=4,
+                tags="loading_anim"
+            )
+            
+            self._loading_angle = (self._loading_angle - 15) % 360
+            
+        self._loading_timer = self.after(30, self._animate_loading)
