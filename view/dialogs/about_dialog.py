@@ -144,7 +144,8 @@ class AboutDialog:
             ("Pillow", "https://github.com/python-pillow/Pillow", 0, 0, tk.W),
             ("svglib", "https://github.com/deeplook/svglib", 0, 1, None),
             ("reportlab", "https://pypi.org/project/reportlab/", 0, 2, tk.E),
-            ("Nuitka", "https://nuitka.net/", 1, 0, tk.W)
+            ("Nuitka", "https://nuitka.net/", 1, 0, tk.W),
+            ("zstandard", "https://github.com/indygreg/python-zstandard", 1, 1, None)
         ]
         
         for name, url, row, col, sticky in libs:
