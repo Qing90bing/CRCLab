@@ -5,6 +5,14 @@ CRCLab - Nuitka 自动化一键打包脚本
 import os
 import sys
 import subprocess
+import shutil
+
+# ==========================================
+# 打包配置参数
+# ==========================================
+# 是否在打包成功后自动清理 Nuitka 产生的临时缓存文件夹
+# 临时文件夹包括: main.build, main.dist, main.onefile-build
+REMOVE_TEMP_FILES = True
 
 def run_build():
     print("====== 🚀 开始执行 Nuitka 编译打包流程 ======")
@@ -77,6 +85,24 @@ def run_build():
         result = subprocess.run(nuitka_args, check=True)
         if result.returncode == 0:
             print("\n====== 🎉 打包成功！产物位于 dist 目录 ======")
+            
+            # 执行临时文件清理逻辑
+            if REMOVE_TEMP_FILES:
+                print("\n====== 🧹 开始清理临时构建目录 ======")
+                temp_dirs = [
+                    os.path.join("dist", "main.build"),
+                    os.path.join("dist", "main.dist"),
+                    os.path.join("dist", "main.onefile-build")
+                ]
+                for d in temp_dirs:
+                    if os.path.exists(d):
+                        try:
+                            shutil.rmtree(d)
+                            print(f"  [+] 已成功移除临时目录: {d}")
+                        except Exception as err:
+                            print(f"  [!] 移除临时目录失败 {d}: {err}")
+                print("====== ✨ 清理完成 ======")
+                
     except subprocess.CalledProcessError as e:
         print(f"\n❌ 打包失败，错误码: {e.returncode}")
     except FileNotFoundError:
