@@ -19,7 +19,7 @@ class BitmapExporter(BaseExporter):
         
         data = app.data_var.get().strip()
         divisor = app.divisor_var.get().strip()
-        q, rows, dividend = app.engine.calculate(data, divisor)
+        q, rows, dividend = app.calculate_current(data, divisor)
         
         ctx = app._get_render_context()
         ctx['view_scale'] = 1.0 * multiplier * dpi_scale

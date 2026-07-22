@@ -241,8 +241,8 @@ class ExportDialog:
         
         def worker():
             try:
-                # 1. 运行 CRC 引擎重新计算步骤
-                q, rows, dividend = self.app.engine.calculate(data, divisor)
+                # 1. 运行 CRC 引擎重新计算步骤（适应当前发送端/接收端模式）
+                q, rows, dividend = self.app.calculate_current(data, divisor)
                 
                 # 2. 物理重绘生成基础 Pillow RGBA 图像
                 img = self.app.renderer.render(data, dividend, divisor, q, rows, ctx)

@@ -227,6 +227,18 @@ class CRCLabApp:
                 
         self.root.after(Config.LAYOUT['render_debounce_ms'], run_generation)
 
+    def calculate_current(self, data, divisor):
+        """
+        根据当前选择的计算模式 (encode / verify) 执行相应的 CRC 算法计算，
+        统一返回用于渲染与导出的元组 (q, rows, dividend)。
+        """
+        mode = getattr(self, 'calc_mode_var', None)
+        if mode and mode.get() == "verify":
+            q, rows, dividend, _, _ = self.engine.verify(data, divisor)
+        else:
+            q, rows, dividend = self.engine.calculate(data, divisor)
+        return q, rows, dividend
+
     def _actual_generate(self, auto_center=False):
         """ 渲染执行逻辑，以当前实际的缩放比例 view_scale 进行绝对高清晰的矢量级内存重绘 """
         data = self.data_var.get().strip()
@@ -253,12 +265,8 @@ class CRCLabApp:
             self.sidebar.show_input_error(self.sidebar.poly_entry, Config.MESSAGES['warning_poly_len_min_2'])
             return
 
-        # 1. 运行二进制 CRC 算法计算引擎
-        mode = self.calc_mode_var.get()
-        if mode == "verify":
-            q, rows, dividend, remainder, is_valid = self.engine.verify(data, divisor)
-        else:
-            q, rows, dividend = self.engine.calculate(data, divisor)
+        # 1. 运行二进制 CRC 算法计算引擎 (自动适应当前选择的 encode / verify 模式)
+        q, rows, dividend = self.calculate_current(data, divisor)
         
         # 2. 收集排版环境字典（此时已包含当前真实的 view_scale 缩放参数）
         ctx = self._get_render_context()

@@ -63,7 +63,7 @@ class Exporter:
             try:
                 data = app.data_var.get().strip()
                 divisor = app.divisor_var.get().strip()
-                q, rows, dividend = app.engine.calculate(data, divisor)
+                q, rows, dividend = app.calculate_current(data, divisor)
                 ctx = app._get_render_context()
                 _, width, height = exporter_cls.estimate_size(
                     app, data, dividend, divisor, q, rows, ctx, color_mode, show_border,
