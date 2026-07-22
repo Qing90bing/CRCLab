@@ -45,6 +45,8 @@ class Config:
         'text_muted': "#64748b",        # 置灰/次要文字颜色
         'text_dark': "#1e293b",         # 加黑/主要文字颜色
         'frame_highlight': "#ef4444",   # 最终发送帧校验码高亮色 (红色)
+        'valid_green': "#16a34a",       # 校验成功/整除颜色 (绿色)
+        'invalid_red': "#dc2626",       # 校验失败/错帧颜色 (红色)
     }
 
     MESSAGES = {

@@ -11,6 +11,7 @@ class ReadonlyEntry(tk.Entry):
     外观与常规 Label 无异，但支持用户手动选定、双击或拖拽进行 Ctrl+C 复制。
     """
     def __init__(self, parent, text_val, font, fg, bg, width=24, justify: Justify = "right"):
+        self._orig_font = font
         super().__init__(
             parent, 
             relief="flat", 
@@ -22,13 +23,21 @@ class ReadonlyEntry(tk.Entry):
             highlightthickness=0,
             justify=justify
         )
-        self.insert(0, text_val)
-        self.config(state="readonly")
+        self.set_value(text_val)
         
-    def set_value(self, val):
+    def set_value(self, val, fg=None):
         self.config(state="normal")
         self.delete(0, tk.END)
-        self.insert(0, val)
+        val_str = str(val)
+        self.insert(0, val_str)
+        # 智能字体切换：如果包含中文，使用中文加粗字体以解决 Times New Roman 中文渲染挤压重叠的 Bug
+        if any(ord(c) > 127 for c in val_str):
+            self.config(font=Config.FONTS['zh_bold'])
+        else:
+            if hasattr(self, '_orig_font') and self._orig_font:
+                self.config(font=self._orig_font)
+        if fg:
+            self.config(fg=fg)
         self.config(state="readonly")
 
 class ModernCheckbutton(tk.Frame):

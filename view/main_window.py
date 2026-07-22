@@ -95,6 +95,7 @@ class CRCLabApp:
         dv = Config.DEFAULT_VALUES
         self.data_var = tk.StringVar(value=dv['data'])
         self.divisor_var = tk.StringVar(value=dv['divisor'])
+        self.calc_mode_var = tk.StringVar(value="encode") # encode (发送端补零编码) | verify (接收端校验)
         
         # 物理排版参数微调变量
         self.font_size_var = tk.IntVar(value=dv['font_size'])
@@ -146,8 +147,9 @@ class CRCLabApp:
         # 下拉框使用主题默认尺寸，避免全局 padding/font 覆盖导致各处高度被定制化撑大。
         self.style.configure('TEntry', padding=(10, 7))
         
-        # 修复复选框与原生 LabelFrame 标题默认英文字体的问题
+        # 修复复选框、单选框与原生 LabelFrame 标题默认英文字体的问题
         self.style.configure('TCheckbutton', font=Config.FONTS['zh_normal'])
+        self.style.configure('TRadiobutton', font=Config.FONTS['zh_normal'])
         self.style.configure('TLabelframe.Label', font=Config.FONTS['zh_bold'])
         self.style.configure('TLabel', font=Config.FONTS['zh_normal'])
         
@@ -252,7 +254,11 @@ class CRCLabApp:
             return
 
         # 1. 运行二进制 CRC 算法计算引擎
-        q, rows, dividend = self.engine.calculate(data, divisor)
+        mode = self.calc_mode_var.get()
+        if mode == "verify":
+            q, rows, dividend, remainder, is_valid = self.engine.verify(data, divisor)
+        else:
+            q, rows, dividend = self.engine.calculate(data, divisor)
         
         # 2. 收集排版环境字典（此时已包含当前真实的 view_scale 缩放参数）
         ctx = self._get_render_context()
@@ -292,6 +298,7 @@ class CRCLabApp:
             
         # 5. 实时刷新底部解析看板
         self.dashboard.update_data(data, divisor, q, rows)
+
 
     def _get_render_context(self):
         """ 收集并返回当前配置变量的渲染上下文字典 """
@@ -364,11 +371,20 @@ class CRCLabApp:
             self.divisor_var.set(poly)
             self.generate(True)
 
-
+    def on_calc_mode_changed(self):
+        """ 响应工作模式切换 (发送端编码 vs 接收端校验) """
+        mode = self.calc_mode_var.get()
+        if hasattr(self.sidebar, 'data_lbl'):
+            if mode == "verify":
+                self.sidebar.data_lbl.config(text="接收数据帧:")
+            else:
+                self.sidebar.data_lbl.config(text=Config.UI_TEXT['data_label'])
+        self.generate(auto_center=True)
 
     def open_export_dialog(self):
         """ 打开导出配置对话框 """
         ExportDialog(self)
+
 
     def _create_large_checkerboard(self, w=3000, h=3000, size=15):
         """ 在大画布的背景图像上平铺柔和灰白相间的棋盘格，指示透明底层 """

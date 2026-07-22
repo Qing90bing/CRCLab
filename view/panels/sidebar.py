@@ -91,14 +91,37 @@ class SidebarPanel(tk.Frame):
         )
         parent.pack(fill=tk.X, pady=(0, 15))
         
+        # 0. 工作模式选择 (发送端编码 vs 接收端校验)
+        mode_frame = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
+        mode_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        rb1 = ttk.Radiobutton(
+            mode_frame, 
+            text="发送端编码 (补零计算)", 
+            value="encode", 
+            variable=self.app.calc_mode_var,
+            command=lambda: self.app.on_calc_mode_changed()
+        )
+        rb1.pack(anchor=tk.W, pady=(0, 4))
+        
+        rb2 = ttk.Radiobutton(
+            mode_frame, 
+            text="接收端校验 (整除验证)", 
+            value="verify", 
+            variable=self.app.calc_mode_var,
+            command=lambda: self.app.on_calc_mode_changed()
+        )
+        rb2.pack(anchor=tk.W)
+
         # 1. 原始二进制数据位输入
-        tk.Label(parent, text=Config.UI_TEXT['data_label'], bg=Config.COLORS['sidebar_bg']).pack(anchor=tk.W, pady=(0, 5))
+        self.data_lbl = tk.Label(parent, text=Config.UI_TEXT['data_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_normal'])
+        self.data_lbl.pack(anchor=tk.W, pady=(5, 5))
         self.data_entry = ttk.Entry(parent, textvariable=self.app.data_var, font=Config.FONTS['en_main'])
         self.data_entry.pack(fill=tk.X, pady=(0, 5))
         self.data_entry.bind("<Return>", lambda e: self.app.generate(auto_center=True))
 
         # 2. 生成多项式输入
-        tk.Label(parent, text=Config.UI_TEXT['poly_label'], bg=Config.COLORS['sidebar_bg']).pack(anchor=tk.W, pady=(5, 5))
+        tk.Label(parent, text=Config.UI_TEXT['poly_label'], bg=Config.COLORS['sidebar_bg'], font=Config.FONTS['zh_normal']).pack(anchor=tk.W, pady=(5, 5))
         pf = tk.Frame(parent, bg=Config.COLORS['sidebar_bg'])
         pf.pack(fill=tk.X, pady=(0, 5))
         self.poly_entry = ttk.Entry(pf, textvariable=self.app.divisor_var, font=Config.FONTS['en_main'])
@@ -110,6 +133,7 @@ class SidebarPanel(tk.Frame):
         self.poly_combo.set(list(Config.STD_POLYS.keys())[0])
         self.poly_combo.pack(fill=tk.X, pady=(0, 5))
         self.poly_combo.bind("<<ComboboxSelected>>", self.app.on_poly_selected)
+
 
     def _init_style_section(self):
         """ 初始化排版与长除法间距滑块区 """

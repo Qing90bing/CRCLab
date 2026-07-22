@@ -79,3 +79,57 @@ class CRCEngine:
                     row['len'] = end_col - row['offset']
         
         return q, rows, dividend
+
+    @staticmethod
+    def verify(frame, divisor):
+        """
+        执行接收端的二进制 CRC 校验计算（无需补零）。
+        
+        接收端将收到的完整数据帧 (包含数据位 + 校验码) 直接除以生成多项式：
+        - 若传输无误，模二长除法余数全为 0 (可整除)；
+        - 若发生传输错误，余数不为 0 (不可整除)，能有效发现错误。
+
+        :param frame: 接收到的二进制数据帧字符串 (例如 "1101010110" 或带错的 "1101011100")
+        :param divisor: 生成多项式字符串 (例如 "1011")
+        :return: 元组 (q, rows, frame, remainder_bits, is_valid)
+        """
+        if not frame or not divisor or divisor[0] == '0' or len(frame) < len(divisor):
+            return "", [], frame, "", False
+
+        n = len(divisor)
+        q = ""
+        rem = frame
+        rows = []
+        last_i = 0
+
+        for i in range(len(frame) - n + 1):
+            if rem[i] == '1':
+                q += '1'
+                rem = CRCEngine._process_xor_step(rem, i, n, divisor, rows)
+                last_i = i
+            else:
+                q += '0'
+
+        # 最终余数行
+        rows.append({
+            'type': 'remainder',
+            'val': rem[last_i:],
+            'offset': last_i
+        })
+
+        # 横线长度调整
+        for idx, row in enumerate(rows):
+            if row['type'] == 'line' and idx + 1 < len(rows):
+                next_row = rows[idx + 1]
+                if next_row['type'] in ('working', 'remainder'):
+                    end_col = max(row['offset'] + n, next_row['offset'] + len(next_row['val']))
+                    row['len'] = end_col - row['offset']
+
+        # 提取固定长度 (n - 1 位) 的最终余数
+        rem_raw = rem[last_i:]
+        n_bits = n - 1
+        remainder_bits = rem_raw[-n_bits:] if len(rem_raw) >= n_bits else rem_raw.zfill(n_bits)
+        is_valid = all(c == '0' for c in remainder_bits)
+
+        return q, rows, frame, remainder_bits, is_valid
+

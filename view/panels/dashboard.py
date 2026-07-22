@@ -110,6 +110,7 @@ class DashboardPanel(tk.Frame):
         )
         self.frame_entry.pack(anchor=tk.CENTER, fill=tk.X)
 
+
     def _add_metric_row(self, parent_frame, label_text, val_text, unit_text, native_bg="#ffffff", is_highlight=False, justify: Justify = "right"):
         """ 统一添加支持右对齐对齐的 Windows 属性行 """
         bg_color = native_bg
@@ -167,10 +168,10 @@ class DashboardPanel(tk.Frame):
                 raw_remainder = r['val']
                 break
                 
-        # 核心数学修复：CRC 校验码长度必须是多项式阶数，即 len(divisor) - 1 位！
+        # 核心数学修复：CRC 校验码长度必须是多项式阶数，即 len(divisor) - 1 位，需用 zfill 补全高位 0！
         if raw_remainder != "--" and len(divisor) > 1:
             n_bits = len(divisor) - 1
-            remainder = raw_remainder[-n_bits:]
+            remainder = raw_remainder[-n_bits:].zfill(n_bits)
         else:
             remainder = raw_remainder
         
@@ -192,8 +193,21 @@ class DashboardPanel(tk.Frame):
         self.stats_lbl1.set_value(q if q else "--")
         self.stats_lbl2.set_value(str(xor_steps))
         
-        # 3. 刷新卡片 3: 校验结果
-        self.checksum_lbl1.set_value(remainder)
+        # 3. 刷新卡片 3: 校验结果 (校验余数)
+        is_verify = False
+        if hasattr(self.app, 'calc_mode_var') and self.app.calc_mode_var.get() == "verify":
+            is_verify = True
+
+        if is_verify:
+            if remainder != "--" and all(c in '01' for c in remainder):
+                if all(c == '0' for c in remainder):
+                    self.checksum_lbl1.set_value(f"{remainder} (整除/无错)", fg=Config.COLORS['valid_green'])
+                else:
+                    self.checksum_lbl1.set_value(f"{remainder} (检测到错误)", fg=Config.COLORS['invalid_red'])
+            else:
+                self.checksum_lbl1.set_value(remainder, fg=Config.COLORS['primary'])
+        else:
+            self.checksum_lbl1.set_value(remainder, fg=Config.COLORS['primary'])
         
         # 转换校验码为 Hex 十六进制
         if remainder != "--" and all(c in '01' for c in remainder):
@@ -202,8 +216,13 @@ class DashboardPanel(tk.Frame):
         else:
             self.checksum_lbl2.set_value("--")
             
-        # 4. 刷新卡片 4: 最终发送帧
-        if remainder != "--":
-            self.frame_entry.set_value(data + remainder)
+        # 4. 刷新卡片 4: 发送数据帧 / 校验数据帧
+        if is_verify:
+            self.title_lbl.config(text="接收校验数据帧")
+            self.frame_entry.set_value(data)
         else:
-            self.frame_entry.set_value("--")
+            self.title_lbl.config(text="拼接发送帧 (可双击选定复制)")
+            if remainder != "--":
+                self.frame_entry.set_value(data + remainder)
+            else:
+                self.frame_entry.set_value("--")
