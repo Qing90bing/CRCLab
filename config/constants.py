@@ -7,7 +7,7 @@ class Config:
     """
     
     # 软件版本定义
-    VERSION = "v1.1.0"
+    VERSION = "v1.1.1"
     AUTHOR = "Qing90bing"
     COPYRIGHT = "© 2026 Qing90bing. All Rights Reserved."
     REPOSITORY = "https://github.com/Qing90bing/CRCLab"
