@@ -270,16 +270,6 @@ class CRCLabApp:
         # 1. 运行二进制 CRC 算法计算引擎 (自动适应当前选择的 encode / verify 模式)
         q, rows, dividend = self.calculate_current(data, divisor)
         
-        # 同步侧边栏“补零/校验码高亮”开关的禁用状态：
-        # 校验模式且检测无错误 → 补零背景块与加粗均无效，置灰不可点击；其余情况启用
-        mode = getattr(self, 'calc_mode_var', None)
-        is_verify = bool(mode and mode.get() == "verify")
-        has_error = False
-        if is_verify and rows and rows[-1]['type'] == 'remainder':
-            has_error = any(c == '1' for c in rows[-1]['val'])
-        if hasattr(self, 'sidebar'):
-            self.sidebar.set_padding_feature_state(not is_verify or has_error)
-        
         # 2. 收集排版环境字典（此时已包含当前真实的 view_scale 缩放参数）
         ctx = self._get_render_context()
         
@@ -309,6 +299,16 @@ class CRCLabApp:
             
         # 5. 实时刷新底部解析看板
         self.dashboard.update_data(data, divisor, q, rows)
+
+        # 6. 同步侧边栏“补零/校验码高亮”开关状态（在渲染成功后，与最终结果保持一致）：
+        # 校验模式且检测无错误 → 补零背景块与加粗均无效，置灰不可点击；其余情况启用
+        mode = getattr(self, 'calc_mode_var', None)
+        is_verify = bool(mode and mode.get() == "verify")
+        has_error = False
+        if is_verify and rows and rows[-1]['type'] == 'remainder':
+            has_error = any(c == '1' for c in rows[-1]['val'])
+        if hasattr(self, 'sidebar'):
+            self.sidebar.set_padding_feature_state(not is_verify or has_error)
 
 
     def _get_render_context(self):

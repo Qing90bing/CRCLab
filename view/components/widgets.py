@@ -357,12 +357,13 @@ class ColorSwatchRow(tk.Frame):
             if self.allow_transparent:
                 self.is_transparent_var.set(False)
             self.last_solid_color = color
-            self.canvas.config(cursor="hand2")
+            self.canvas.config(cursor="" if getattr(self, '_disabled', False) else "hand2")
             self.canvas.delete("checker")
             self.canvas.config(bg=color)
         
     def set_state(self, enabled):
         """ 设置该配置项的启用/禁用置灰状态（含透明与加粗复选框） """
+        self._disabled = not enabled
         if enabled:
             if not (self.allow_transparent and self.is_transparent_var.get()):
                 self.canvas.config(cursor="hand2", highlightbackground=Config.COLORS['border_enabled'])
