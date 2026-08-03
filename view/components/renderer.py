@@ -251,7 +251,7 @@ class CanvasRenderer:
         text_y = line_y + L['cell_h'] * 0.1
         cy = text_y + L['cell_h']/2
         
-        # 1. 优先绘制补零标记背景块（RGBA 柔和半透明，若为透明则跳过绘制）
+        # 1. 优先绘制补零标记背景块（若为透明则跳过绘制）
         pad_idx = len(data)
         if pad_idx < len(dividend) and ctx['bg_block_color'] not in ("transparent", "none"):
             bx0 = ox + (L['pad_cells'] + pad_idx) * L['cell_w'] + L['grid_base'] * 0.15
@@ -297,15 +297,32 @@ class CanvasRenderer:
         """ 绘制单个异或数值行 """
         cy = cy_base + L['cell_h']/2
         
-        # 1. 绘制余数行的补零灰色标记块（若为透明则跳过绘制）
-        if row['type'] == 'remainder' and ctx['bg_block_color'] not in ("transparent", "none"):
-            pad_s = len(data) - row['offset']
-            if 0 <= pad_s < len(row['val']):
-                bx0 = ox + (L['pad_cells'] + row['offset'] + pad_s) * L['cell_w'] + L['grid_base'] * 0.15
-                bx1 = ox + (L['pad_cells'] + row['offset'] + len(row['val'])) * L['cell_w'] - L['grid_base'] * 0.15
-                by0 = oy + cy_base + L['cell_h']*0.05
-                by1 = oy + cy_base + L['cell_h']*0.95
-                draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
+        # 校验模式：最终余数行按验证结果决定是否高亮（无错误=禁用；有错误=仅'1'画背景块+可选加粗）
+        is_verify = ctx.get('is_verify', False)
+        rem_invalid = None  # None=非校验余数行；True=余数含 1（有错误）；False=余数全 0（无错误）
+        if is_verify and row['type'] == 'remainder':
+            rem_invalid = any(c == '1' for c in row['val'])
+        
+        # 1. 背景块：
+        #    - 编码模式：余数行的补零标记块（若为透明则跳过绘制）
+        #    - 校验模式：仅当最终余数行含 '1'（有错误）时，只在 '1' 所在单元格画背景块（无错误则禁用）
+        if ctx['bg_block_color'] not in ("transparent", "none") and row['type'] == 'remainder':
+            if not is_verify:
+                pad_s = len(data) - row['offset']
+                if 0 <= pad_s < len(row['val']):
+                    bx0 = ox + (L['pad_cells'] + row['offset'] + pad_s) * L['cell_w'] + L['grid_base'] * 0.15
+                    bx1 = ox + (L['pad_cells'] + row['offset'] + len(row['val'])) * L['cell_w'] - L['grid_base'] * 0.15
+                    by0 = oy + cy_base + L['cell_h']*0.05
+                    by1 = oy + cy_base + L['cell_h']*0.95
+                    draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
+            elif rem_invalid:
+                for bi, bchar in enumerate(row['val']):
+                    if bchar == '1':
+                        bx0 = ox + (L['pad_cells'] + row['offset'] + bi) * L['cell_w'] + L['grid_base'] * 0.15
+                        bx1 = ox + (L['pad_cells'] + row['offset'] + bi + 1) * L['cell_w'] - L['grid_base'] * 0.15
+                        by0 = oy + cy_base + L['cell_h']*0.05
+                        by1 = oy + cy_base + L['cell_h']*0.95
+                        draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
 
         # 2. 绘制该行中的二进制数字
         dividend_font = L['font_bold'] if ctx.get('bold_dividend', False) else L['font']
@@ -314,8 +331,11 @@ class CanvasRenderer:
             cx = ox + (L['pad_cells'] + row['offset'] + i) * L['cell_w'] + L['cell_w']/2
             color = ctx.get('dividend_color', '#000000')
             font_to_use = dividend_font
-            # 被拉下来的补零数字显示特殊颜色
+            # 被拉下来的补零数字显示特殊颜色（仅编码模式）
             if row['type'] == 'remainder' and i >= (len(data) - row['offset']):
                 color = ctx['bg_digit_color']
                 font_to_use = zeros_font
+            # 校验模式：错误位（1）加粗（受“补零标记加粗”开关控制，可关闭）；无错误则不加粗
+            if rem_invalid and char == '1' and ctx.get('bold_zeros', False):
+                font_to_use = L['font_bold']
             draw.text((cx, oy + cy), text=char, font=font_to_use, fill=color, anchor="mm")

@@ -362,18 +362,22 @@ class ColorSwatchRow(tk.Frame):
             self.canvas.config(bg=color)
         
     def set_state(self, enabled):
-        """ 设置该配置项的启用/禁用置灰状态 """
+        """ 设置该配置项的启用/禁用置灰状态（含透明与加粗复选框） """
         if enabled:
             if not (self.allow_transparent and self.is_transparent_var.get()):
                 self.canvas.config(cursor="hand2", highlightbackground=Config.COLORS['border_enabled'])
             self.lbl.config(fg=Config.COLORS['fg_enabled'])
             if self.allow_transparent:
                 self.trans_check.config(state=tk.NORMAL)
+            if hasattr(self, 'bold_check'):
+                self.bold_check.config(state=tk.NORMAL)
         else:
             self.canvas.config(cursor="", highlightbackground=Config.COLORS['border_disabled'])
             self.lbl.config(fg=Config.COLORS['fg_disabled'])
             if self.allow_transparent:
                 self.trans_check.config(state=tk.DISABLED)
+            if hasattr(self, 'bold_check'):
+                self.bold_check.config(state=tk.DISABLED)
 
 class LabeledGroup(ttk.LabelFrame):
     """

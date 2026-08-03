@@ -214,6 +214,13 @@ class SidebarPanel(tk.Frame):
         ttk.Button(self.inner_panel, text=Config.UI_TEXT['btn_export'], command=self.app.open_export_dialog, 
                    style='Action.TButton').pack(fill=tk.X, pady=(15, 20))
 
+    def set_padding_feature_state(self, enabled):
+        """ 同步“补零/校验码高亮”相关配置行的启用状态（校验模式无错误时禁用） """
+        for attr in ('bg_block_color', 'bg_digit_color'):
+            row = self.color_rows.get(attr)
+            if row is not None:
+                row.set_state(enabled)
+
     def update_swatches(self):
         """ 响应色彩重置或重新选取，动态同步色彩块底色 """
         for attr, row in self.color_rows.items():

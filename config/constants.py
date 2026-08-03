@@ -17,7 +17,7 @@ class Config:
         'divisor_color': "#000000",    # 左侧除数数字颜色
         'quotient_color': "#000000",   # 顶部商数字颜色
         'dividend_color': "#000000",   # 其他主体部分（被除数、计算过程、余数）颜色
-        'bg_block_color': "#f3f4f6",   # 补零区域的背景块颜色（淡灰色）
+        'bg_block_color': "#e2e8f0",   # 补零区域的背景块颜色（浅蓝灰，纸上显示更清晰且舒适护眼）
         'bg_digit_color': "#000000",   # 补零区域内的数字颜色
         'line_color': "#000000",       # 除法横线、弧线及边框颜色
         'sheet_bg_color': "#ffffff"    # 模拟纸张的背景底色
