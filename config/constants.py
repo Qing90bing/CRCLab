@@ -38,27 +38,18 @@ class Config:
         'toolbar_divider': "#e2e8f0",   # 工具栏垂直分割线背景
         'preview_canvas_bg': "#ffffff",  # 导出预览画布背景色
         'preview_canvas_border': "#cbd5e1", # 导出预览画布边框高亮色
-        'dir_lbl_fg': "#64748b",        # 导出目录路径文字灰色
-        'dashboard_bg': "#ffffff",      # 解析看板背景色
-        'dashboard_card_bg': "#ffffff", # 解析看板卡片背景色
-        'dashboard_card_border': "#e2e8f0", # 看板卡片边框色
         'text_muted': "#64748b",        # 置灰/次要文字颜色
         'text_dark': "#1e293b",         # 加黑/主要文字颜色
-        'frame_highlight': "#ef4444",   # 最终发送帧校验码高亮色 (红色)
         'valid_green': "#16a34a",       # 校验成功/整除颜色 (绿色)
         'invalid_red': "#dc2626",       # 校验失败/错帧颜色 (红色)
     }
 
     MESSAGES = {
         'warning_title_invalid': "输入无效",
-        'warning_empty': "数据位和多项式不能为空！",
-        'warning_title_format': "格式错误",
         'warning_invalid_binary': "请输入有效的二进制字符串 (仅限 0 和 1)！",
-        'warning_title_algo': "算法限制",
         'warning_poly_first_bit_1': "多项式首位必须为 1 才能进行有效的 CRC 除法计算。",
         'warning_poly_len_min_2': "多项式长度至少需为 2 位。",
         'warning_custom_dir_empty': "已选择“自定义目录”，但尚未通过“浏览目录”按钮指定具体导出路径。",
-        'warning_invalid_filename': "导出文件名不合格！\n文件名不能为空，且不能包含以下字符：\\ / : * ? \" < > |",
         'export_fail_title': "导出失败",
         'export_fail_body': "导出过程中发生错误，请按以下信息排查：\n\n1) 错误类型: {error_type}\n2) 错误详情: {error_msg}\n3) 建议排查: 请确认目录写入权限或导出参数是否有效。",
     }
@@ -135,14 +126,12 @@ class Config:
         'dialog_pick_dir_title': "选择导出目录",
 
         # 解析看板文字
-        'dashboard_title': "实时运算结果解析看板",
         'card_input_title': "输入特征分析",
         'card_stats_title': "运算步骤统计",
         'card_checksum_title': "校验输出结果",
         'card_frame_title': "发送数据帧",
         
         # 关于软件相关文本
-        'btn_about': "关于软件",
         'about_title': "关于 CRCLab",
     }
 
@@ -152,8 +141,6 @@ class Config:
         'min_side_width': 400,   # 侧边栏最小宽度保证
         'input_padx': 20,        # 输入区域水平内边距
         'input_pady': 20,        # 输入区域垂直内边距
-        'check_size': 20,        # 自定义复选框的尺寸
-        'check_color': "#3b82f6",# 复选框激活时的蓝色调
         'canvas_bg': "#1e293b",  # 画布容器的背景（暗色调）
         'export_dialog_w_ratio': 0.75,   # 导出对话框对物理屏幕宽度的占比
         'export_dialog_h_ratio': 0.75,   # 导出对话框对物理屏幕高度的占比
@@ -276,7 +263,6 @@ class Config:
         'side_title': ("SimSun", 12, "bold"),    # 侧边栏主标题字体
         'combo': ("SimSun", 10),                 # 下拉选择框字体
         'btn_small': ("SimSun", 10),              # 侧边栏常规小按钮字体
-        'zoom_btn': ("Times New Roman", 12, "bold"),       # 缩放控制按钮字体
         'zoom_lbl': ("Times New Roman", 10, "bold"),       # 顶部比例显示字体
         'fallback_families': ["times.ttf", "times", "simsun.ttc", "simsun"], # 字体回退列表
         'gdi_family': "Times New Roman",         # Windows GDI 矢量导出默认字体

@@ -1,6 +1,4 @@
 import tkinter as tk
-import os
-from PIL import Image, ImageTk
 from tkinter import ttk
 from config.constants import Config
 from view.components.widgets import ModernScale, ColorSwatchRow

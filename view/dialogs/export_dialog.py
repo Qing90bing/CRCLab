@@ -1,8 +1,7 @@
 import os
-import io
 import tkinter as tk
-from tkinter import messagebox, filedialog, ttk
-from PIL import Image, ImageTk
+from tkinter import messagebox
+from PIL import Image
 from config.constants import Config
 from view.dialogs.success_dialog import SuccessDialog
 from services.exporter_service import Exporter, ExportSnapshot

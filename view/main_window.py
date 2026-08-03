@@ -1,6 +1,6 @@
 import ctypes
 import tkinter as tk
-from tkinter import messagebox, colorchooser, ttk
+from tkinter import colorchooser, ttk
 from PIL import Image, ImageTk
 
 import os
