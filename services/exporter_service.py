@@ -2,6 +2,22 @@ import os
 from config.constants import Config
 from services.exporters import EXPORTERS
 
+class ExportSnapshot:
+    """
+    主线程采集的导出数据快照，避免后台导出线程跨线程读取 Tk 变量（Tkinter 非线程安全）。
+    包含导出所需的全部数据与渲染上下文，工作线程仅消费快照。
+    """
+    __slots__ = ("data", "divisor", "q", "rows", "dividend", "ctx", "renderer")
+    def __init__(self, data, divisor, q, rows, dividend, ctx, renderer):
+        self.data = data
+        self.divisor = divisor
+        self.q = q
+        self.rows = rows
+        self.dividend = dividend
+        self.ctx = ctx
+        self.renderer = renderer
+
+
 class Exporter:
     """
     高阶导出协调外观类 (Facade)。
@@ -11,7 +27,7 @@ class Exporter:
     这样即使以后增加格式，此外部协调器及 UI 控制层也能保持 100% 稳定，符合开闭原则（OCP）。
     """
     @staticmethod
-    def export(app, filename, fmt, show_border, color_mode, quality_name, jpg_quality, dpi_val, dir_mode, custom_dir):
+    def export(snap, filename, fmt, show_border, color_mode, quality_name, jpg_quality, dpi_val, dir_mode, custom_dir):
         """
         统一物理导出入口。通过工厂映射字典分发至具体物理插件。
         """
@@ -46,7 +62,7 @@ class Exporter:
             raise NotImplementedError(f"未注册的导出格式：{fmt}")
             
         exporter_cls.save(
-            app, out_path, show_border, color_mode,
+            snap, out_path, show_border, color_mode,
             multiplier=multiplier, dpi_val=dpi_val, jpg_quality=jpg_quality
         )
         
@@ -61,12 +77,8 @@ class Exporter:
                 pass
         else:
             try:
-                data = app.data_var.get().strip()
-                divisor = app.divisor_var.get().strip()
-                q, rows, dividend = app.calculate_current(data, divisor)
-                ctx = app._get_render_context()
                 _, width, height = exporter_cls.estimate_size(
-                    app, data, dividend, divisor, q, rows, ctx, color_mode, show_border,
+                    snap, snap.data, snap.dividend, snap.divisor, snap.q, snap.rows, snap.ctx, color_mode, show_border,
                     fmt=fmt
                 )
             except Exception:

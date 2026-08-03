@@ -55,7 +55,7 @@ class CanvasRenderer:
         
         # 3. 估算最右端横线终点与数据终点
         div_last_x = (pad_cells + dividend_len - 1) * cell_w + cell_w / 2
-        line_right = div_last_x + cell_w / 2 - grid_base * 0.15 + ctx['ext_right'] * grid_base
+        line_right = div_last_x + cell_w / 2 - grid_base * Config.LAYOUT['block_inset_ratio'] + ctx['ext_right'] * grid_base
         
         # 4. 计算左右几何安全边界（留出 0.5 个 grid_base 作为安全余量）
         left_bound = min(0.0, p0x) - grid_base * 0.5
@@ -203,7 +203,7 @@ class CanvasRenderer:
         
         # 计算横线右侧终点
         div_last_x = (L['pad_cells'] + L['dividend_len'] - 1) * L['cell_w'] + L['cell_w']/2
-        line_right = div_last_x + L['cell_w'] / 2 - L['grid_base'] * 0.15 + ctx['ext_right'] * L['grid_base']
+        line_right = div_last_x + L['cell_w'] / 2 - L['grid_base'] * Config.LAYOUT['block_inset_ratio'] + ctx['ext_right'] * L['grid_base']
         
         # 绝对定位坐标
         lx0 = ox + line_left
@@ -254,8 +254,8 @@ class CanvasRenderer:
         # 1. 优先绘制补零标记背景块（若为透明则跳过绘制）
         pad_idx = len(data)
         if pad_idx < len(dividend) and ctx['bg_block_color'] not in ("transparent", "none"):
-            bx0 = ox + (L['pad_cells'] + pad_idx) * L['cell_w'] + L['grid_base'] * 0.15
-            bx1 = ox + (L['pad_cells'] + len(dividend)) * L['cell_w'] - L['grid_base'] * 0.15
+            bx0 = ox + (L['pad_cells'] + pad_idx) * L['cell_w'] + L['grid_base'] * Config.LAYOUT['block_inset_ratio']
+            bx1 = ox + (L['pad_cells'] + len(dividend)) * L['cell_w'] - L['grid_base'] * Config.LAYOUT['block_inset_ratio']
             by0 = oy + text_y + L['cell_h']*0.05
             by1 = oy + text_y + L['cell_h']*0.95
             draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
@@ -283,8 +283,8 @@ class CanvasRenderer:
             if row['type'] == 'line':
                 # 绘制中间的减法（异或）横线
                 curr_y += L['cell_h'] * 0.1
-                lx0 = ox + (L['pad_cells'] + row['offset']) * L['cell_w'] + L['grid_base'] * 0.15 + ctx['ext_left'] * L['grid_base']
-                lx1 = ox + (L['pad_cells'] + row['offset'] + row['len']) * L['cell_w'] - L['grid_base'] * 0.15 + ctx['ext_right'] * L['grid_base']
+                lx0 = ox + (L['pad_cells'] + row['offset']) * L['cell_w'] + L['grid_base'] * Config.LAYOUT['block_inset_ratio'] + ctx['ext_left'] * L['grid_base']
+                lx1 = ox + (L['pad_cells'] + row['offset'] + row['len']) * L['cell_w'] - L['grid_base'] * Config.LAYOUT['block_inset_ratio'] + ctx['ext_right'] * L['grid_base']
                 ly = oy + curr_y
                 draw.line([(lx0, ly), (lx1, ly)], fill=ctx['line_color'], width=L['line_w'])
                 curr_y += L['cell_h'] * 0.1
@@ -310,16 +310,16 @@ class CanvasRenderer:
             if not is_verify:
                 pad_s = len(data) - row['offset']
                 if 0 <= pad_s < len(row['val']):
-                    bx0 = ox + (L['pad_cells'] + row['offset'] + pad_s) * L['cell_w'] + L['grid_base'] * 0.15
-                    bx1 = ox + (L['pad_cells'] + row['offset'] + len(row['val'])) * L['cell_w'] - L['grid_base'] * 0.15
+                    bx0 = ox + (L['pad_cells'] + row['offset'] + pad_s) * L['cell_w'] + L['grid_base'] * Config.LAYOUT['block_inset_ratio']
+                    bx1 = ox + (L['pad_cells'] + row['offset'] + len(row['val'])) * L['cell_w'] - L['grid_base'] * Config.LAYOUT['block_inset_ratio']
                     by0 = oy + cy_base + L['cell_h']*0.05
                     by1 = oy + cy_base + L['cell_h']*0.95
                     draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)
             elif rem_invalid:
                 for bi, bchar in enumerate(row['val']):
                     if bchar == '1':
-                        bx0 = ox + (L['pad_cells'] + row['offset'] + bi) * L['cell_w'] + L['grid_base'] * 0.15
-                        bx1 = ox + (L['pad_cells'] + row['offset'] + bi + 1) * L['cell_w'] - L['grid_base'] * 0.15
+                        bx0 = ox + (L['pad_cells'] + row['offset'] + bi) * L['cell_w'] + L['grid_base'] * Config.LAYOUT['block_inset_ratio']
+                        bx1 = ox + (L['pad_cells'] + row['offset'] + bi + 1) * L['cell_w'] - L['grid_base'] * Config.LAYOUT['block_inset_ratio']
                         by0 = oy + cy_base + L['cell_h']*0.05
                         by1 = oy + cy_base + L['cell_h']*0.95
                         draw.rectangle([bx0, by0, bx1, by1], fill=ctx['bg_block_color'], outline=None)

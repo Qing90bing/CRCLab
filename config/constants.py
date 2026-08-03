@@ -180,7 +180,8 @@ class Config:
         # SSAA 抗锯齿物理渲染控制参数
         # SSAA 抗锯齿物理渲染控制参数
         'ssaa_factor': 2,                # SSAA 抗锯齿超采样因子
-        'curve_segments': 200,            # 贝塞尔曲线分段数（提高采样数以减少矢量曲线导出时的锯齿感）
+        'curve_segments': 200,
+        'block_inset_ratio': 0.15,   # 背景块/横线内收比例（以 grid_base 为基准）            # 贝塞尔曲线分段数（提高采样数以减少矢量曲线导出时的锯齿感）
         
         # 自定义色彩块拾色按钮物理尺寸，调大以方便用户点击
         'color_swatch_w': 80,           # 色彩拾色块物理宽度

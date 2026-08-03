@@ -1,5 +1,6 @@
 from PIL import Image, ImageDraw
 from config.constants import Config
+from services.exporters.color_utils import parse_color, apply_color_mode
 from services.exporters.base import BaseExporter
 
 class SVGInterceptDraw:
@@ -48,26 +49,25 @@ class SVGExporter(BaseExporter):
     SVG 1.1 矢量图导出及体积粗估插件。
     """
     @staticmethod
-    def save(app, out_path, show_border, color_mode, **kwargs):
+    def save(snap, out_path, show_border, color_mode, **kwargs):
         """
         核心物理保存：将拦截到的矢量指令序列化为 SVG 格式的 XML 文件并写入磁盘。
         """
-        data = app.data_var.get().strip()
-        divisor = app.divisor_var.get().strip()
-        q, rows, dividend = app.calculate_current(data, divisor)
+        data, divisor = snap.data, snap.divisor
+        q, rows, dividend = snap.q, snap.rows, snap.dividend
         
-        ctx = app._get_render_context()
+        ctx = snap.ctx.copy()
         ctx['view_scale'] = 1.0
         ctx['show_border'] = show_border
         ctx['color_mode'] = color_mode
         ctx['is_preview'] = False
         
-        svg_content, _, _ = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, ctx)
+        svg_content, _, _ = SVGExporter.render_to_svg(snap.renderer, data, dividend, divisor, q, rows, ctx)
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(svg_content)
 
     @staticmethod
-    def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
+    def estimate_size(snap, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
         """
         快速计算生成的 SVG 二进制字节流大小并格式化返回。
         """
@@ -76,7 +76,7 @@ class SVGExporter(BaseExporter):
         svg_ctx['show_border'] = show_border
         svg_ctx['is_preview'] = False
         
-        svg_content, w_sheet, h_sheet = SVGExporter.render_to_svg(app.renderer, data, dividend, divisor, q, rows, svg_ctx)
+        svg_content, w_sheet, h_sheet = SVGExporter.render_to_svg(snap.renderer, data, dividend, divisor, q, rows, svg_ctx)
         size_bytes = len(svg_content.encode("utf-8"))
         return size_bytes, w_sheet, h_sheet
 
@@ -171,7 +171,7 @@ class SVGExporter(BaseExporter):
         font_sz_real = font_sz / ssaa_factor
         
         # 基线偏移补偿：通过 y' = y + 0.33 * FontSize 调整垂直居中对齐
-        ty = (cy - y0) / ssaa_factor + p + 0.33 * font_sz_real
+        ty = (cy - y0) / ssaa_factor + p + Config.GDI['baseline_offset_ratio'] * font_sz_real
         escaped_text = text_val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         
         is_bold = False
@@ -255,35 +255,6 @@ class SVGExporter(BaseExporter):
         )
 
     @staticmethod
-    def parse_color(color_in):
-        """
-        物理层级色彩通道通用解析工具。
-        """
-        if not color_in:
-            return (0, 0, 0, 255)
-        if isinstance(color_in, tuple):
-            if len(color_in) == 3:
-                return (color_in[0], color_in[1], color_in[2], 255)
-            elif len(color_in) == 4:
-                return color_in
-        c_str = str(color_in).strip()
-        if c_str.startswith("#"):
-            h = c_str.lstrip("#")
-            if len(h) == 3:
-                h = "".join(x + x for x in h)
-            if len(h) == 6:
-                return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 255)
-            elif len(h) == 8:
-                return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), int(h[6:8], 16))
-        
-        color_map = {
-            "white": (255, 255, 255, 255),
-            "black": (0, 0, 0, 255),
-            "none": (0, 0, 0, 0)
-        }
-        return color_map.get(c_str.lower(), (0, 0, 0, 255))
-
-    @staticmethod
     def to_svg_color_and_opacity(color_in, ctx):
         """
         核心色彩过滤算法：支持灰度、黑白及彩色过滤，并分离出 Hex 填充颜色和透明度 opacity。
@@ -291,21 +262,12 @@ class SVGExporter(BaseExporter):
         if color_in is None or color_in in ("none", "transparent"):
             return "none", 0.0
             
-        r, g, b, a = SVGExporter.parse_color(color_in)
+        r, g, b, a = parse_color(color_in)
         if a == 0:
             return "none", 0.0
             
         color_mode = ctx.get('color_mode', Config.EXPORT_OPTIONS['colors'][0])
-        if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
-            # 灰度转换
-            y = int(0.299 * r + 0.587 * g + 0.114 * b)
-            r, g, b = y, y, y
-        elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
-            # 极低对比度纯黑白双色过滤
-            y = int(0.299 * r + 0.587 * g + 0.114 * b)
-            val = 255 if y >= 127 else 0
-            r, g, b = val, val, val
-            
+        r, g, b = apply_color_mode(r, g, b, color_mode)
         hex_color = f"#{r:02x}{g:02x}{b:02x}"
         opacity = a / 255.0
         return hex_color, opacity

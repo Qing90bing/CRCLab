@@ -8,7 +8,7 @@ class BitmapExporter(BaseExporter):
     高分超采样位图 (PNG, JPEG) 导出及精算估计插件。
     """
     @staticmethod
-    def save(app, out_path, show_border, color_mode, **kwargs):
+    def save(snap, out_path, show_border, color_mode, **kwargs):
         """
         以高分辨率超采样渲染位图图表并存盘。
         """
@@ -17,17 +17,16 @@ class BitmapExporter(BaseExporter):
         jpg_quality = max(10, min(100, int(kwargs.get('jpg_quality', 80))))
         dpi_scale = dpi_val / 96.0
         
-        data = app.data_var.get().strip()
-        divisor = app.divisor_var.get().strip()
-        q, rows, dividend = app.calculate_current(data, divisor)
+        data, divisor = snap.data, snap.divisor
+        q, rows, dividend = snap.q, snap.rows, snap.dividend
         
-        ctx = app._get_render_context()
+        ctx = snap.ctx.copy()
         ctx['view_scale'] = 1.0 * multiplier * dpi_scale
         ctx['show_border'] = show_border
         ctx['is_preview'] = False
         
         # 1. 委托渲染器生成基础 Pillow 图像
-        img = app.renderer.render(data, dividend, divisor, q, rows, ctx)
+        img = snap.renderer.render(data, dividend, divisor, q, rows, ctx)
         save_fmt = "JPEG" if out_path.lower().endswith((".jpg", ".jpeg")) else "PNG"
         img = BitmapExporter._apply_color_mode(img, color_mode, save_fmt)
 
@@ -37,7 +36,7 @@ class BitmapExporter(BaseExporter):
         img.save(out_path, **save_kwargs)
 
     @staticmethod
-    def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
+    def estimate_size(snap, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
         """
         高精度物理重绘估算，直接采用真实目标分辨率进行内存仿真渲染，实现 100% 完美的预估文件大小。
         """
@@ -53,7 +52,7 @@ class BitmapExporter(BaseExporter):
         ctx_real['show_border'] = show_border
         ctx_real['is_preview'] = False
         
-        img_real = app.renderer.render(data, dividend, divisor, q, rows, ctx_real)
+        img_real = snap.renderer.render(data, dividend, divisor, q, rows, ctx_real)
         save_fmt = "JPEG" if fmt.lower() in ("jpg", "jpeg") else "PNG"
         img_real = BitmapExporter._apply_color_mode(img_real, color_mode, save_fmt)
         

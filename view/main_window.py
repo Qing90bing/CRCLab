@@ -215,10 +215,13 @@ class CRCLabApp:
     def generate(self, auto_center=False):
         """ 图像生成主入口，包含防抖处理以合并高频触发事件 """
         if getattr(self, '_render_pending', False):
+            # 正在渲染：记录最新请求，当前轮结束后补跑一次，避免防抖合并丢失最终输入
             self._next_auto_center = auto_center
+            self._render_requested_again = True
             return
             
         self._render_pending = True
+        self._render_requested_again = False
         self._next_auto_center = auto_center
         
         def run_generation():
@@ -226,6 +229,9 @@ class CRCLabApp:
                 self._actual_generate(self._next_auto_center)
             finally:
                 self._render_pending = False
+                if getattr(self, '_render_requested_again', False):
+                    self._render_requested_again = False
+                    self.generate(auto_center=self._next_auto_center)
                 
         self.root.after(Config.LAYOUT['render_debounce_ms'], run_generation)
 

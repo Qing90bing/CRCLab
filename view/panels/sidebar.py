@@ -3,7 +3,7 @@ import os
 from PIL import Image, ImageTk
 from tkinter import ttk
 from config.constants import Config
-from view.components.widgets import ModernCheckbutton, ModernScale, ColorSwatchRow
+from view.components.widgets import ModernScale, ColorSwatchRow
 
 class SidebarPanel(tk.Frame):
     """

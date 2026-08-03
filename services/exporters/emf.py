@@ -2,6 +2,7 @@ import platform
 import ctypes
 from PIL import Image, ImageDraw
 from config.constants import Config
+from services.exporters.color_utils import parse_color, apply_color_mode
 from services.exporters.base import BaseExporter
 
 # 动态加载 Windows 底层 GDI32 矢量依赖
@@ -95,21 +96,12 @@ class EMFInterceptDraw:
         return int((y - self.y0) / self.sf + self.p)
 
     def _rgb_to_colorref(self, fill_str):
-        """ Hex 颜色串 (#RRGGBB) 转 Windows COLORREF (0x00BBGGRR)，支持灰度和黑白色彩模式转换 """
-        h = fill_str.lstrip('#')
-        r, g, b = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-        
+        """ 通用颜色解析后转为 Windows COLORREF (0x00BBGGRR)，支持灰度/黑白过滤。 """
+        r, g, b, a = parse_color(fill_str)
+        if a == 0:
+            return 0
         color_mode = self.ctx.get('color_mode', Config.EXPORT_OPTIONS['colors'][0])
-        if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
-            # 灰度转换
-            y = int(0.299 * r + 0.587 * g + 0.114 * b)
-            r, g, b = y, y, y
-        elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
-            # 纯黑白双色转换
-            y = int(0.299 * r + 0.587 * g + 0.114 * b)
-            val = 255 if y >= 127 else 0
-            r, g, b = val, val, val
-            
+        r, g, b = apply_color_mode(r, g, b, color_mode)
         return r | (g << 8) | (b << 16)
 
     def rectangle(self, xy, fill=None, outline=None, width=1, *args, **kwargs):
@@ -200,18 +192,17 @@ class EMFExporter(BaseExporter):
     Windows GDI32 矢量增强型图元 (EMF) 原生写盘与估算插件。
     """
     @staticmethod
-    def save(app, out_path, show_border, color_mode, **kwargs):
+    def save(snap, out_path, show_border, color_mode, **kwargs):
         """
         核心物理保存：启动 Windows 原生 GDI 拦截器，物理渲染矢量 EMF 图元到物理文件。
         """
         if not HAS_EMF_DEPENDENCY:
             raise NotImplementedError("EMF 矢量导出格式仅支持在 Windows 操作系统下运行。")
             
-        data = app.data_var.get().strip()
-        divisor = app.divisor_var.get().strip()
-        q, rows, dividend = app.calculate_current(data, divisor)
+        data, divisor = snap.data, snap.divisor
+        q, rows, dividend = snap.q, snap.rows, snap.dividend
         
-        ctx = app._get_render_context()
+        ctx = snap.ctx.copy()
         ctx['view_scale'] = 1.0
         ctx['show_border'] = show_border
         ctx['color_mode'] = color_mode
@@ -222,21 +213,21 @@ class EMFExporter(BaseExporter):
             raise OSError("无法创建 EMF 设备上下文。")
             
         try:
-            EMFExporter.draw_to_emf(app, hdc, data, dividend, divisor, q, rows, ctx)
+            EMFExporter.draw_to_emf(snap, hdc, data, dividend, divisor, q, rows, ctx)
         finally:
             hemf = ctypes.windll.gdi32.CloseEnhMetaFile(hdc)
             if hemf:
                 ctypes.windll.gdi32.DeleteEnhMetaFile(hemf)
 
     @staticmethod
-    def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
+    def estimate_size(snap, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
         """
         使用 Windows GDI 原生接口创建虚拟内存 EMF 设备，并精确计算其产生的底层二进制字节流大小及真实分辨率。
         """
         if not HAS_EMF_DEPENDENCY:
             return 0, 0, 0
         try:
-            renderer = app.renderer
+            renderer = snap.renderer
             ssaa_factor = Config.LAYOUT['ssaa_factor']
             ctx_ssaa = ctx.copy()
             ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
@@ -274,7 +265,7 @@ class EMFExporter(BaseExporter):
             return 0, 0, 0
 
     @staticmethod
-    def draw_to_emf(app, hdc, data, dividend, divisor, q, rows, ctx):
+    def draw_to_emf(snap, hdc, data, dividend, divisor, q, rows, ctx):
         """
         核心物理转换：计算坐标原点安全偏置并触发代理将 CanvasRenderer 命令分发 to GDI。
         """
@@ -283,7 +274,7 @@ class EMFExporter(BaseExporter):
         ctx_ssaa['view_scale'] = ctx['view_scale'] * ssaa_factor
 
         # 1. 物理计算与拦截器初始化，用于获取裁剪用 bounding box
-        renderer = app.renderer
+        renderer = snap.renderer
         L = renderer._calculate_layout(ctx_ssaa, dividend, divisor)
         ox, oy, w_temp, h_temp = renderer._estimate_bounds(ctx_ssaa, L, rows)
         

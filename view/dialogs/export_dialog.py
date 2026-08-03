@@ -5,7 +5,7 @@ from tkinter import messagebox, filedialog, ttk
 from PIL import Image, ImageTk
 from config.constants import Config
 from view.dialogs.success_dialog import SuccessDialog
-from services.exporter_service import Exporter
+from services.exporter_service import Exporter, ExportSnapshot
 from view.dialogs.export_preview import ExportPreview
 from view.dialogs.export_form import ExportForm
 
@@ -537,11 +537,18 @@ class ExportDialog:
         jpg_quality = int(round(float(form.jpg_quality_var.get())))
         dpi = form.dpi_var.get()
         
+        # 3.5 主线程采集导出快照，避免后台线程跨线程读取 Tk 变量（Tkinter 非线程安全）
+        snap_data = self.app.data_var.get().strip()
+        snap_divisor = self.app.divisor_var.get().strip()
+        snap_q, snap_rows, snap_dividend = self.app.calculate_current(snap_data, snap_divisor)
+        snap_ctx = self.app._get_render_context()
+        snap = ExportSnapshot(snap_data, snap_divisor, snap_q, snap_rows, snap_dividend, snap_ctx, self.app.renderer)
+        
         # 4. 后台物理写入
         def async_worker():
             try:
                 out_path, export_dir, width, height = Exporter.export(
-                    self.app,
+                    snap,
                     filename,
                     fmt,
                     show_border,
