@@ -96,15 +96,12 @@ class InteractiveCanvas(tk.Canvas):
         self.update_bg_position()
 
     def update_bg_position(self):
+        # 棋盘格背景是“屏幕静止”贴图：无论内容如何平移/缩放，
+        # 它始终锚定在当前视口中心（相对窗口不动），模拟常见绘图软件的固定工作区底纹。
         if self.find_withtag("canvas_bg"):
-            x0 = self.canvasx(0)
-            y0 = self.canvasy(0)
             w = self.winfo_width()
             h = self.winfo_height()
             if w > 10 and h > 10:
-                cx = x0 + w / 2
-                cy = y0 + h / 2
-                size = 15
-                cx_aligned = int((cx // size) * size)
-                cy_aligned = int((cy // size) * size)
-                self.coords("canvas_bg", cx_aligned, cy_aligned)
+                cx = self.canvasx(w / 2)
+                cy = self.canvasy(h / 2)
+                self.coords("canvas_bg", cx, cy)

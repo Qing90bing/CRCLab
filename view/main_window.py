@@ -280,27 +280,18 @@ class CRCLabApp:
         # 4. 在画布上渲染图像并更新滚动范围
         self.photo_img = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
-        
-        # 核心数学奥义：获取当前视口中心，并用 15 像素格子对齐，使得背景图大棋盘格在空间中静止且永远铺满
-        cx_aligned, cy_aligned = 0, 0
-        w = self.canvas.winfo_width()
-        h = self.canvas.winfo_height()
-        if w > 10 and h > 10:
-            x0 = self.canvas.canvasx(0)
-            y0 = self.canvas.canvasy(0)
-            cx = x0 + w / 2
-            cy = y0 + h / 2
-            size = 15
-            cx_aligned = int((cx // size) * size)
-            cy_aligned = int((cy // size) * size)
-            
-        # 优先在底层铺设大棋盘格背景图
-        self.canvas.create_image(cx_aligned, cy_aligned, image=self.canvas_bg_image, anchor="center", tags="canvas_bg")
-        # 贴上长除法算式纸面图
-        self.canvas.create_image(0, 0, image=self.photo_img, anchor="center", tags="formula")
+
         scroll_bound = Config.LAYOUT['canvas_scroll_bound']
         self.canvas.config(scrollregion=(-scroll_bound, -scroll_bound, scroll_bound, scroll_bound))
-        
+
+        # 棋盘格背景为“屏幕静止”贴图：先创建，再由 update_bg_position 锚定到当前视口中心。
+        # 平移/缩放时它相对窗口不动，只有算式图纸随之移动（符合常见绘图软件习惯）。
+        self.canvas.create_image(0, 0, image=self.canvas_bg_image, anchor="center", tags="canvas_bg")
+        self.canvas.update_bg_position()
+
+        # 贴上长除法算式纸面图
+        self.canvas.create_image(0, 0, image=self.photo_img, anchor="center", tags="formula")
+
         if auto_center:
             self.canvas.center_view()
             
