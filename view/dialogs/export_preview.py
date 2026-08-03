@@ -56,12 +56,8 @@ class ExportPreview(tk.Frame):
         # 将预览放置在画布的绝对物理中心
         cx, cy = cw / 2, ch / 2
         
-        # 1. 优先在最底层铺设大背景棋盘格图，对齐 15 像素网格，避免网格闪烁
-        size = 15
-        cx_aligned = int((cx // size) * size)
-        cy_aligned = int((cy // size) * size)
-        
-        self.preview_canvas.create_image(cx_aligned, cy_aligned, image=self.app.canvas_bg_image, anchor="center", tags="canvas_bg")
+        # 1. 优先在最底层铺设大背景棋盘格图（与主画布一致：精确居中，不做网格对齐）
+        self.preview_canvas.create_image(cx, cy, image=self.app.canvas_bg_image, anchor="center", tags="canvas_bg")
         
         # 2. 贴上缩放完成后的公式算式图
         self.preview_photo = ImageTk.PhotoImage(img)
@@ -80,11 +76,8 @@ class ExportPreview(tk.Frame):
             
         cx, cy = cw / 2, ch / 2
         
-        # 快速平移背景网格（保持科技感像素对齐）
-        size = 15
-        cx_aligned = int((cx // size) * size)
-        cy_aligned = int((cy // size) * size)
-        self.preview_canvas.coords("canvas_bg", cx_aligned, cy_aligned)
+        # 背景与公式均精确锚定画布中心（静态底纹，不做网格对齐）
+        self.preview_canvas.coords("canvas_bg", cx, cy)
         
         # 快速平移前景公式图像
         self.preview_canvas.coords("formula", cx, cy)

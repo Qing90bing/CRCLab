@@ -319,15 +319,3 @@ class CanvasRenderer:
                 color = ctx['bg_digit_color']
                 font_to_use = zeros_font
             draw.text((cx, oy + cy), text=char, font=font_to_use, fill=color, anchor="mm")
-
-    def _fill_checkerboard(self, img, size=10):
-        """ 在图像底板上用柔和灰白棋盘格填充，指示预览状态下的透明背景 """
-        draw = ImageDraw.Draw(img)
-        w, h = img.size
-        for x in range(0, w, size):
-            for y in range(0, h, size):
-                if ((x // size) + (y // size)) % 2 == 1:
-                    # 使用非常雅致微弱的浅灰色
-                    draw.rectangle([x, y, x + size - 1, y + size - 1], fill="#f1f5f9", outline=None)
-                else:
-                    draw.rectangle([x, y, x + size - 1, y + size - 1], fill="#ffffff", outline=None)

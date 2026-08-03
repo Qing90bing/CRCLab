@@ -214,6 +214,14 @@ class Config:
         'card_gap': 12,                  # 卡片之间的间隔
     }
 
+    # 灰白棋盘格背景参数（主画布 / 导出预览共用）
+    CHECKERBOARD = {
+        'cell': 15,            # 棋盘格单元尺寸（px）
+        'color_light': "#ffffff",   # 浅色格子（底图基色）
+        'color_dark': "#f1f5f9",    # 深色格子（绘制的格子）
+        'size_margin': 400,    # 背景图超出视口/窗口的安全余量（px）
+    }
+
     # 默认业务参数配置表：程序启动时的初始状态
     DEFAULT_VALUES = {
         'data': "110101",        # 默认数据位

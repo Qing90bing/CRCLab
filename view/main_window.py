@@ -1,7 +1,7 @@
 import ctypes
 import tkinter as tk
 from tkinter import messagebox, colorchooser, ttk
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk
 
 import os
 import sys
@@ -17,6 +17,7 @@ Image.MAX_IMAGE_PIXELS = None
 # 导入自定义模块
 from core.engine import CRCEngine
 from config.constants import Config
+from view.components.checkerboard import create_checkerboard_image
 from view.components.renderer import CanvasRenderer
 from view.panels.sidebar import SidebarPanel
 from view.dialogs.export_dialog import ExportDialog
@@ -44,9 +45,9 @@ class CRCLabApp:
         self.view_scale = 1.0  # 全局缩放比例
         self.photo_img = None  # 强引用保持，防止 Tkinter 图像垃圾回收
         
-        # 预先物理渲染大画布的灰白棋盘格背景图
-        self.canvas_bg_image_pil = self._create_large_checkerboard()
-        self.canvas_bg_image = ImageTk.PhotoImage(self.canvas_bg_image_pil)
+        # 灰白棋盘格背景图：先初始化占位，窗口几何确定后由 _setup_checkerboard_background 动态生成
+        self.canvas_bg_image_pil = None
+        self.canvas_bg_image = None
         
         # 2. 基础数据状态与配色加载
         self._init_variables()
@@ -55,6 +56,7 @@ class CRCLabApp:
         # 3. 基础环境及窗口自适应配置
         self._setup_window_geometry()
         self._setup_styles()
+        self._setup_checkerboard_background()
         
         # 4. 构建解耦后的 GUI 界面
         self.setup_ui()
@@ -385,13 +387,43 @@ class CRCLabApp:
         ExportDialog(self)
 
 
-    def _create_large_checkerboard(self, w=3000, h=3000, size=15):
-        """ 在大画布的背景图像上平铺柔和灰白相间的棋盘格，指示透明底层 """
-        img = Image.new("RGBA", (w, h), "#ffffff")
-        draw = ImageDraw.Draw(img)
-        for x in range(0, w, size):
-            for y in range(0, h, size):
-                if ((x // size) + (y // size)) % 2 == 1:
-                    # 使用极其柔雅的配置
-                    draw.rectangle([x, y, x + size - 1, y + size - 1], fill="#f1f5f9", outline=None)
-        return img
+    def _checkerboard_base_size(self):
+        """ 计算棋盘格背景的基准（最小）尺寸：需同时盖满导出预览对话框与主画布视口 """
+        margin = Config.CHECKERBOARD['size_margin']
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        w = int(sw * Config.LAYOUT['export_dialog_w_ratio']) + margin
+        h = int(sh * Config.LAYOUT['export_dialog_h_ratio']) + margin
+        return w, h
+
+    def _setup_checkerboard_background(self):
+        """ 动态生成灰白棋盘格背景图：基准尺寸覆盖导出预览对话框（0.75×屏幕） + 安全余量，并由 create_checkerboard_image 做相位对齐 """
+        floor_w, floor_h = self._checkerboard_base_size()
+        self.canvas_bg_image_pil = create_checkerboard_image(floor_w, floor_h)
+        self.canvas_bg_image = ImageTk.PhotoImage(self.canvas_bg_image_pil)
+
+    def ensure_checkerboard_size(self, w, h):
+        """ 按需扩容 / 滞回缩容背景图：扩容后窗口缩回会自动释放内存，重建保持棋盘格相位稳定 """
+        if self.canvas_bg_image_pil is None:
+            return
+        img_w, img_h = self.canvas_bg_image_pil.size
+        margin = Config.CHECKERBOARD['size_margin']
+        floor_w, floor_h = self._checkerboard_base_size()
+        need_w = max(w + margin, floor_w)
+        need_h = max(h + margin, floor_h)
+
+        if w > img_w or h > img_h:
+            # 扩容：视口超出图片边缘 → 新尺寸 = max(需求, 当前) 并留足缓冲
+            new_w = max(need_w, img_w)
+            new_h = max(need_h, img_h)
+        elif img_w > need_w * 2 or img_h > need_h * 2:
+            # 滞回缩容：图片比需求大一倍以上才重建缩小，避免拖动窗口时反复重建
+            new_w = need_w
+            new_h = need_h
+        else:
+            return
+
+        self.canvas_bg_image_pil = create_checkerboard_image(new_w, new_h)
+        self.canvas_bg_image = ImageTk.PhotoImage(self.canvas_bg_image_pil)
+        if self.canvas.find_withtag("canvas_bg"):
+            self.canvas.itemconfig("canvas_bg", image=self.canvas_bg_image)

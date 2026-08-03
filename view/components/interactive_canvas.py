@@ -102,6 +102,9 @@ class InteractiveCanvas(tk.Canvas):
             w = self.winfo_width()
             h = self.winfo_height()
             if w > 10 and h > 10:
+                # 视口若超出背景图尺寸则按需扩容，确保静态底纹始终铺满
+                if hasattr(self.app, 'ensure_checkerboard_size'):
+                    self.app.ensure_checkerboard_size(w, h)
                 cx = self.canvasx(w / 2)
                 cy = self.canvasy(h / 2)
                 self.coords("canvas_bg", cx, cy)
