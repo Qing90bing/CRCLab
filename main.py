@@ -1,5 +1,6 @@
 import ctypes
 import tkinter as tk
+
 from view.main_window import CRCLabApp
 
 if __name__ == "__main__":
@@ -13,7 +14,7 @@ if __name__ == "__main__":
             # Windows 8.1
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:
-            try:
+            try:  # noqa: SIM105  # fallback chain for DPI awareness
                 # Windows Vista/7
                 ctypes.windll.user32.SetProcessDPIAware()
             except Exception:
@@ -22,4 +23,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = CRCLabApp(root)
     root.mainloop()
-

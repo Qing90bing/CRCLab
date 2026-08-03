@@ -1,0 +1,30 @@
+target-version = "py310"
+line-length = 140
+
+# main_window.py intentionally imports local modules after fixing sys.path
+# (packaging compatibility), so E402 (import not at top of file) is ignored.
+lint.select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "C4",
+    "RUF",
+    "PERF",
+]
+
+lint.ignore = [
+    "E402",  # main_window.py intentionally imports local modules after sys.path fix
+    "RUF001", "RUF002", "RUF003",  # Chinese text intentionally uses fullwidth punctuation
+    "RUF012",  # Config is a static constants holder, not an instance with mutable defaults
+]
+
+lint.exclude = [
+    ".venv",
+    "dist",
+    "__pycache__",
+    "导出结果",
+]

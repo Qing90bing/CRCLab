@@ -1,15 +1,16 @@
 class BaseExporter:
     """
     所有导出格式处理器的抽象基类。
-    
+
     统一约束了物理写盘 (save) 与文件体积粗估/精算 (estimate_size) 的核心接口，
     为 CRC 导出引擎提供可插拔式的插件机制。
     """
+
     @staticmethod
     def save(app, out_path, show_border, color_mode, **kwargs):
         """
         物理写盘保存的核心入口方法。
-        
+
         参数:
             app: 主应用程序实例对象。
             out_path: 目标导出的物理存储路径。
@@ -23,7 +24,7 @@ class BaseExporter:
     def estimate_size(app, data, dividend, divisor, q, rows, ctx, color_mode, show_border, **kwargs):
         """
         测算并估计最终物理文件字节大小的入口方法。
-        
+
         参数:
             app: 主应用程序实例对象。
             data: 用户输入的数据位二进制字串。
@@ -35,7 +36,7 @@ class BaseExporter:
             color_mode: 导出的色彩模式。
             show_border: 是否显示纸张边框。
             kwargs: 差异化参数（如 multipliers、dpis 等）。
-            
+
         返回:
             str: 格式化后的文件大小估计文本（例如 "12.45 KB" 或 "无法估计"）。
         """

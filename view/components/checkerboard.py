@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw
+
 from config.constants import Config
 
 
@@ -10,9 +11,9 @@ def create_checkerboard_image(width, height):
     尺寸会向上取整到 4 倍格子大小的倍数，保证任意尺寸重建时棋盘格相对屏幕的相位不变。
     """
     cfg = Config.CHECKERBOARD
-    size = cfg['cell']
-    light = cfg['color_light']
-    dark = cfg['color_dark']
+    size = cfg["cell"]
+    light = cfg["color_light"]
+    dark = cfg["color_dark"]
     # 相位对齐：尺寸取整到 4 倍格子大小的倍数，任意重建时图案相位不变
     align = 4 * size  # 相位对齐单位：两对格子的周期，确保重建时图案相位不变
     w = max(align, ((int(width) + align - 1) // align) * align)

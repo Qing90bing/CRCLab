@@ -1,0 +1,6 @@
+# 开发/质量检查依赖
+ruff>=0.15
+pytest>=8
+mypy>=1.10
+bandit>=1.7
+vulture>=2.10

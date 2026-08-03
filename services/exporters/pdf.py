@@ -1,19 +1,23 @@
 import io
+
 from services.exporters.base import BaseExporter
 from services.exporters.svg import SVGExporter
 
 # 动态延迟加载 PDF 系统底层渲染依赖
 try:
-    from svglib.svglib import svg2rlg
     from reportlab.graphics import renderPDF
+    from svglib.svglib import svg2rlg
+
     HAS_PDF_DEPENDENCY = True
 except ImportError:
     HAS_PDF_DEPENDENCY = False
+
 
 class PDFExporter(BaseExporter):
     """
     通过 XML 矢量网关转换为 ReportLab 的 PDF 物理写入及粗估插件。
     """
+
     @staticmethod
     def save(snap, out_path, show_border, color_mode, **kwargs):
         """
@@ -21,18 +25,18 @@ class PDFExporter(BaseExporter):
         """
         if not HAS_PDF_DEPENDENCY:
             raise ImportError("未检测到 PDF 矢量导出依赖！请先在命令行运行 pip install svglib reportlab 导入支持。")
-            
+
         data, divisor = snap.data, snap.divisor
         q, rows, dividend = snap.q, snap.rows, snap.dividend
-        
+
         ctx = snap.ctx.copy()
-        ctx['view_scale'] = 1.0
-        ctx['show_border'] = show_border
-        ctx['color_mode'] = color_mode
-        
+        ctx["view_scale"] = 1.0
+        ctx["show_border"] = show_border
+        ctx["color_mode"] = color_mode
+
         # 1. 先行渲染生成标准的 SVG XML 字符串
         svg_content, _, _ = SVGExporter.render_to_svg(snap.renderer, data, dividend, divisor, q, rows, ctx)
-        
+
         # 2. 将 SVG 流读入 Reportlab 进行矢量转换并保存成文件
         svg_io = io.BytesIO(svg_content.encode("utf-8"))
         drawing = svg2rlg(svg_io)
@@ -47,19 +51,19 @@ class PDFExporter(BaseExporter):
             return 0, 0, 0
         try:
             pdf_ctx = ctx.copy()
-            pdf_ctx['color_mode'] = color_mode
-            pdf_ctx['show_border'] = show_border
-            
+            pdf_ctx["color_mode"] = color_mode
+            pdf_ctx["show_border"] = show_border
+
             # 1. 渲染生成临时 SVG 代码
             svg_content, w, h = SVGExporter.render_to_svg(snap.renderer, data, dividend, divisor, q, rows, pdf_ctx)
-            
+
             # 2. 将流注入 Reportlab 的 PDF 物理流包装器
             svg_io = io.BytesIO(svg_content.encode("utf-8"))
             drawing = svg2rlg(svg_io)
-            
+
             pdf_bio = io.BytesIO()
             renderPDF.drawToFile(drawing, pdf_bio)
-            
+
             # 3. 测量字节流长度并格式化
             size_bytes = len(pdf_bio.getvalue())
             return size_bytes, w, h

@@ -39,10 +39,10 @@ def apply_color_mode(r, g, b, color_mode):
     统一灰度 / 黑白 色彩过滤，避免各导出器重复实现。
     返回过滤后的 (r, g, b)。
     """
-    if color_mode == Config.EXPORT_OPTIONS['colors'][1]:
+    if color_mode == Config.EXPORT_OPTIONS["colors"][1]:
         y = int(0.299 * r + 0.587 * g + 0.114 * b)
         return y, y, y
-    elif color_mode == Config.EXPORT_OPTIONS['colors'][2]:
+    elif color_mode == Config.EXPORT_OPTIONS["colors"][2]:
         y = int(0.299 * r + 0.587 * g + 0.114 * b)
         v = 255 if y >= 127 else 0
         return v, v, v
