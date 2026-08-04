@@ -1,10 +1,11 @@
-import os
 import tkinter as tk
 from contextlib import suppress
+from pathlib import Path
 from tkinter import messagebox
 
 from PIL import Image
 
+from config import paths
 from config.constants import Config
 from services.exporter_service import Exporter, ExportSnapshot
 from view.dialogs.export_form import ExportForm
@@ -148,9 +149,8 @@ class ExportDialog:
             is_custom = dir_mode == Config.EXPORT_OPTIONS["dir_modes"][1]
 
             if not is_custom:
-                # 默认当前目录模式：计算绝对化物理路径，设置禁用视觉样式
-                export_dir = os.path.join(os.getcwd(), "导出结果")
-                form.display_dir_var.set(os.path.abspath(export_dir))
+                # 默认程序目录模式：显示绝对化物理路径，设置禁用视觉样式
+                form.display_dir_var.set(str(paths.default_export_dir()))
             else:
                 # 自定义位置模式：同步 custom_dir_var，高亮显示可编辑模式
                 if form.display_dir_var.get() != form.custom_dir_var.get():
@@ -435,7 +435,7 @@ class ExportDialog:
 
         # 计算文件真实大小
         try:
-            size_bytes = os.path.getsize(out_path)
+            size_bytes = Path(out_path).stat().st_size
             if size_bytes > 0:
                 size_kb = size_bytes / 1024.0
                 size_text = f"{size_bytes:,} 字节（{size_kb:.1f} KB）"
@@ -447,7 +447,7 @@ class ExportDialog:
         # 组装明细数据
         is_vector = fmt.lower() in ("svg", "pdf", "emf")
         details = {
-            "文件名": os.path.basename(out_path),
+            "文件名": Path(out_path).name,
             "格式": fmt.upper(),
             "DPI": dpi,
             "颜色": color,
@@ -486,8 +486,7 @@ class ExportDialog:
 
         # 1. 前置校验：校验文件名是否合法，以及自定义目录是否有效
         filename = form.filename_var.get().strip()
-        invalid_chars = set('\\/:*?"<>|')
-        if not filename or any(char in invalid_chars for char in filename):
+        if not paths.is_safe_filename(filename):
             form.show_filename_error('文件名不能为空，且不能包含 \\ / : * ? " < > |')
             return
 
@@ -498,13 +497,15 @@ class ExportDialog:
             if not custom_dir:
                 messagebox.showwarning(Config.MESSAGES["warning_title_invalid"], Config.MESSAGES["warning_custom_dir_empty"])
                 return
-            if not os.path.exists(custom_dir):
+            custom_dir_path = paths.resolve_custom_dir(custom_dir)
+            custom_dir = str(custom_dir_path)
+            if not custom_dir_path.exists():
                 messagebox.showerror(
                     "路径不存在",
                     f"您指定的自定义导出目录不存在：\n\n{custom_dir}\n\n请先在系统中手动创建该目录，或在输入框中填入正确的路径。",
                 )
                 return
-            if not os.path.isdir(custom_dir):
+            if not custom_dir_path.is_dir():
                 messagebox.showerror(
                     "路径无效", f"您指定的路径不是一个有效的目录：\n\n{custom_dir}\n\n请重新输入或点击“浏览目录”按钮选择。"
                 )

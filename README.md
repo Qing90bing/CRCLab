@@ -29,8 +29,8 @@ python -m venv .venv
 # 2. 安装运行与开发依赖
 python -m pip install -r requirements-dev.txt
 
-# 3. 如需打包，再安装 Nuitka 及其压缩依赖
-python -m pip install nuitka zstandard
+# 3. 如需打包，安装固定版本的打包依赖
+python -m pip install -r requirements-build.txt
 
 # 4. 运行程序
 python main.py
@@ -44,15 +44,20 @@ python main.py
 
 **执行打包**：
 ```powershell
-python build_exe.py
+\.venv\Scripts\python.exe build_exe.py
 ```
-编译通常耗时 2-5 分钟，完成后会在 `dist` 目录下生成 `CRCLab.exe`。
+脚本严格使用项目根目录下的 `.venv`，不会回退到全局 Python；如果 `.venv` 不存在或未安装 Nuitka，脚本会直接失败。这样可以避免把全局环境中的额外依赖带入程序。编译通常耗时 2-5 分钟，完成后会在 `dist` 目录下生成 `CRCLab.exe`。
+
+## 5. 路径约定
+- **程序资源**：图标等静态资源统一从应用内部的 `resources` 目录加载，不依赖启动时的当前目录。
+- **默认导出**：默认导出到程序目录下的 `导出结果` 文件夹；自定义目录支持绝对路径，也支持相对程序目录的路径。
+- **打包输出**：源码入口、资源目录和 `dist` 输出目录均以项目根目录为基准，打包脚本不会修改调用进程的当前目录。
 
 > **注意**：进行生产环境发布打包时，**请务必在独立的虚拟环境 (venv) 中进行**。这可以确保仅打包必需的依赖项，避免引入系统全局的多余依赖导致可执行文件体积臃肿。
 
-## 5. 常见问题排查
+## 6. 常见问题排查
 - **PDF 导出报错**：确认虚拟环境中已正确安装 `svglib` 和 `reportlab`。
 - **找不到模块 (ModuleNotFoundError)**：通常由于虚拟环境激活失效，导致包被安装到了全局。建议直接使用 `.\.venv\Scripts\python.exe -m pip install ...` 重新安装。
 
-## 6. 技术致谢
+## 7. 技术致谢
 本项目在开发、重构及问题排查过程中，使用了 Google Gemini AI 与 OpenAI Codex 进行辅助编码。

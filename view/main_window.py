@@ -1,10 +1,10 @@
-import os
 import tkinter as tk
 from contextlib import suppress
 from tkinter import colorchooser, ttk
 
 from PIL import Image, ImageTk
 
+from config import paths
 from config.constants import Config
 from core.engine import CRCEngine
 from view.components.checkerboard import create_checkerboard_image
@@ -64,9 +64,8 @@ class CRCLabApp:
     def _setup_window_icon(self):
         """安全地设置窗口及任务栏高清图标"""
         # 兼容单文件打包和常规运行环境，动态定位绝对路径，防范 CWD 漂移的影响
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        icon_ico = os.path.join(base_dir, "resources", "app_icon.ico")
-        icon_png = os.path.join(base_dir, "resources", "app_icon.png")
+        icon_ico = paths.resource_path("app_icon.ico")
+        icon_png = paths.resource_path("app_icon.png")
 
         try:
             # Windows 任务栏高分辨率 App ID 适配，防止任务栏显示 Python 默认的“蟒蛇”图标
@@ -78,11 +77,11 @@ class CRCLabApp:
             pass
 
         try:
-            if os.path.exists(icon_png):
-                self.app_icon_img = ImageTk.PhotoImage(file=icon_png)
+            if icon_png.exists():
+                self.app_icon_img = ImageTk.PhotoImage(file=str(icon_png))
                 self.root.iconphoto(True, self.app_icon_img)
-            elif os.path.exists(icon_ico):
-                self.root.iconbitmap(icon_ico)
+            elif icon_ico.exists():
+                self.root.iconbitmap(str(icon_ico))
         except Exception:
             pass
 

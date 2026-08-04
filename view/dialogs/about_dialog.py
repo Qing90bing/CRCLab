@@ -1,10 +1,10 @@
-import os
 import tkinter as tk
 from contextlib import suppress
 from tkinter import ttk
 
 from PIL import Image, ImageTk
 
+from config import paths
 from config.constants import Config
 
 
@@ -53,7 +53,7 @@ class AboutDialog:
         header_frame = tk.Frame(parent, bg=Config.COLORS["main_bg"])
         header_frame.pack(fill=tk.X, pady=(0, 20))
 
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "resources", "app_icon2.png")
+        logo_path = paths.resource_path("app_icon2.png")
         try:
             img = Image.open(logo_path)
             resample_filter = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else getattr(Image, "ANTIALIAS", 1)

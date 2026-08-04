@@ -1,6 +1,11 @@
+from pathlib import Path
+
+import pytest
+
+from config import paths
 from config.constants import Config
 from core.engine import CRCEngine
-from services.exporter_service import ExportSnapshot
+from services.exporter_service import Exporter, ExportSnapshot
 from services.exporters.bitmap import BitmapExporter
 from services.exporters.svg import SVGExporter
 from tests.helpers import make_ctx
@@ -22,6 +27,50 @@ def test_png_export_writes_file(tmp_path):
     out = tmp_path / "chart.png"
     BitmapExporter.save(snap, str(out), False, Config.EXPORT_OPTIONS["colors"][0])
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_default_export_does_not_depend_on_current_directory(tmp_path, monkeypatch):
+    snap = _make_snapshot()
+    app_dir = tmp_path / "app"
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.setattr(paths, "default_export_dir", lambda: app_dir)
+    monkeypatch.chdir(work_dir)
+
+    out_path, export_dir, _, _ = Exporter.export(
+        snap,
+        "chart",
+        "png",
+        False,
+        Config.EXPORT_OPTIONS["colors"][0],
+        Config.EXPORT_OPTIONS["qualities"][0],
+        80,
+        300,
+        Config.EXPORT_OPTIONS["dir_modes"][0],
+        "",
+    )
+
+    assert Path(out_path).parent == app_dir
+    assert Path(export_dir) == app_dir
+    assert Path(out_path).is_file()
+
+
+def test_export_rejects_path_traversal_filename(tmp_path):
+    snap = _make_snapshot()
+
+    with pytest.raises(ValueError):
+        Exporter.export(
+            snap,
+            "..\\chart",
+            "png",
+            False,
+            Config.EXPORT_OPTIONS["colors"][0],
+            Config.EXPORT_OPTIONS["qualities"][0],
+            80,
+            300,
+            Config.EXPORT_OPTIONS["dir_modes"][0],
+            "",
+        )
 
 
 def test_svg_export_contains_block_fill(tmp_path):

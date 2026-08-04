@@ -1,6 +1,6 @@
-import os
 from contextlib import suppress
 
+from config import paths
 from config.constants import Config
 from services.exporters import EXPORTERS
 
@@ -40,35 +40,41 @@ class Exporter:
         opt_q = Config.EXPORT_OPTIONS["qualities"]
         multiplier = {opt_q[0]: 1, opt_q[1]: 2, opt_q[2]: 3, opt_q[3]: 4}[quality_name]
 
-        # 1. 物理导出结果存储目录初始化
-        if dir_mode == Config.EXPORT_OPTIONS["dir_modes"][0]:
-            export_dir = os.path.join(os.getcwd(), "导出结果")
-            os.makedirs(export_dir, exist_ok=True)
-        else:
-            export_dir = custom_dir
-            if not export_dir:
-                raise ValueError(Config.MESSAGES["warning_custom_dir_empty"])
-            if not os.path.exists(export_dir) or not os.path.isdir(export_dir):
-                raise FileNotFoundError(f"指定的自定义导出目录不存在或无效：{export_dir}")
-
-        # 自动重命名，防止覆盖已有文件
-        base_name = filename
-        out_path = os.path.join(export_dir, f"{base_name}.{fmt}")
-        counter = 1
-        while os.path.exists(out_path):
-            out_path = os.path.join(export_dir, f"{base_name}_{counter}.{fmt}")
-            counter += 1
-
-        # 2. 动态查找注册的格式插件并调用执行
-        exporter_cls = EXPORTERS.get(fmt.lower())
+        # 1. 校验导出格式，再解析物理导出目录
+        normalized_fmt = fmt.strip().lower()
+        exporter_cls = EXPORTERS.get(normalized_fmt)
         if not exporter_cls:
             raise NotImplementedError(f"未注册的导出格式：{fmt}")
 
-        exporter_cls.save(snap, out_path, show_border, color_mode, multiplier=multiplier, dpi_val=dpi_val, jpg_quality=jpg_quality)
+        dir_modes = Config.EXPORT_OPTIONS["dir_modes"]
+        if dir_mode == dir_modes[0]:
+            export_dir = paths.default_export_dir()
+            export_dir.mkdir(parents=True, exist_ok=True)
+        elif dir_mode == dir_modes[1]:
+            if not custom_dir:
+                raise ValueError(Config.MESSAGES["warning_custom_dir_empty"])
+            export_dir = paths.resolve_custom_dir(custom_dir)
+            if not export_dir.exists() or not export_dir.is_dir():
+                raise FileNotFoundError(f"指定的自定义导出目录不存在或无效：{export_dir}")
+        else:
+            raise ValueError(f"导出目录模式无效：{dir_mode}")
+
+        # 2. 自动重命名，防止覆盖已有文件
+        out_path = paths.unique_export_path(export_dir, filename, normalized_fmt)
+
+        exporter_cls.save(
+            snap,
+            str(out_path),
+            show_border,
+            color_mode,
+            multiplier=multiplier,
+            dpi_val=dpi_val,
+            jpg_quality=jpg_quality,
+        )
 
         # 获取导出的物理像素尺寸
         width, height = 0, 0
-        if fmt.lower() in ("png", "jpg", "jpeg"):
+        if normalized_fmt in ("png", "jpg", "jpeg"):
             try:
                 from PIL import Image
 
@@ -79,10 +85,19 @@ class Exporter:
         else:
             with suppress(Exception):
                 _, width, height = exporter_cls.estimate_size(
-                    snap, snap.data, snap.dividend, snap.divisor, snap.q, snap.rows, snap.ctx, color_mode, show_border, fmt=fmt
+                    snap,
+                    snap.data,
+                    snap.dividend,
+                    snap.divisor,
+                    snap.q,
+                    snap.rows,
+                    snap.ctx,
+                    color_mode,
+                    show_border,
+                    fmt=normalized_fmt,
                 )
 
-        return out_path, export_dir, width, height
+        return str(out_path), str(export_dir), width, height
 
     @staticmethod
     def estimate_vector_size(app, fmt, data, dividend, divisor, q, rows, ctx, color_mode, show_border):
