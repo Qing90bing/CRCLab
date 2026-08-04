@@ -1,3 +1,6 @@
+# 开发环境同时安装运行时依赖
+-r requirements.txt
+
 # 开发/质量检查依赖
 ruff>=0.15
 pytest>=8

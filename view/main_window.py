@@ -1,20 +1,10 @@
 import os
-import sys
 import tkinter as tk
 from contextlib import suppress
 from tkinter import colorchooser, ttk
 
 from PIL import Image, ImageTk
 
-# 动态确保项目根目录在 sys.path 中，防范直接运行此脚本时的模块导入错误
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# 解除 PIL 最大像素限制，确保超高分辨率导出（例如 4 倍放大时）不会因为像素总数超限而抛出 DecompressionBombError
-Image.MAX_IMAGE_PIXELS = None
-
-# 导入自定义模块
 from config.constants import Config
 from core.engine import CRCEngine
 from view.components.checkerboard import create_checkerboard_image
@@ -24,6 +14,9 @@ from view.components.toolbar import CanvasToolbar
 from view.dialogs.export_dialog import ExportDialog
 from view.panels.dashboard import DashboardPanel
 from view.panels.sidebar import SidebarPanel
+
+# 解除 PIL 最大像素限制，确保超高分辨率导出（例如 4 倍放大时）不会因为像素总数超限而抛出 DecompressionBombError
+Image.MAX_IMAGE_PIXELS = None
 
 
 class CRCLabApp:

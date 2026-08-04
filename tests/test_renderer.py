@@ -1,12 +1,10 @@
 from core.engine import CRCEngine
+from tests.helpers import make_ctx
 from view.components.renderer import CanvasRenderer
 
 BLOCK = (226, 232, 240)  # #e2e8f0
 VALID_GREEN = (22, 163, 74)
 INVALID_RED = (220, 38, 38)
-
-
-from tests.helpers import make_ctx
 
 
 def _render(mode, frame, divisor="1011", **ctx_overrides):

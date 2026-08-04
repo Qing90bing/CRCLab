@@ -26,10 +26,13 @@
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
-# 2. 安装依赖
-pip install nuitka zstandard Pillow svglib reportlab
+# 2. 安装运行与开发依赖
+python -m pip install -r requirements-dev.txt
 
-# 3. 运行程序
+# 3. 如需打包，再安装 Nuitka 及其压缩依赖
+python -m pip install nuitka zstandard
+
+# 4. 运行程序
 python main.py
 ```
 *注：若遇环境变量冲突，建议直接使用解释器路径执行（如 `.\.venv\Scripts\python.exe main.py`）。*

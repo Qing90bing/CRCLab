@@ -1,0 +1,4 @@
+# CRCLab 运行时依赖
+Pillow>=10
+svglib>=1.5
+reportlab>=4
